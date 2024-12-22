@@ -90,7 +90,7 @@ docker build -t my-llm-image:latest -f Dockerfile .
 GPU を使う場合の例（NVIDIA Container Toolkit が必須）:
 ```bash
 docker run --gpus all --rm -itd -v ~/:/mnt \
-  --name <コンテナ名>
+  --name <コンテナ名> \
   -p 8888:8888 \
   my-llm-image:latest \
   /bin/bash
@@ -100,6 +100,12 @@ docker run --gpus all --rm -itd -v ~/:/mnt \
 - `--gpus all`: GPU をすべて利用  
 - `-p 8888:8888`: ポートをコンテナ外にフォワード（任意のアプリケーションで活用可能）  
 - `/bin/bash`: シェルに入る。アプリ直接起動したい場合はコマンドを置き換えてください。
+
+一般利用
+```bash
+docker run --gpus all --rm -itd -v ~/:/mnt --name <コンテナ名> my-llm-image:latest /bin/bash
+```
+これまで開発環境は構築完了
 
 ### 2. コンテナ内で Jupyter Lab を起動
 
