@@ -73,7 +73,7 @@ cd <クローンしたディレクトリ>
 **2. Docker イメージをビルド**
 
 ```bash
-docker build -t my-llm-image:latest -f .devcontainer/Dockerfile .
+docker build -t my-llm-image:latest -f Dockerfile .
 ```
 
 - `my-llm-image:latest` はイメージに付けるタグ名（任意）  
