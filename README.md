@@ -77,7 +77,7 @@ docker build -t my-llm-image:latest -f Dockerfile .
 ```
 
 - `my-llm-image:latest` はイメージに付けるタグ名（任意）  
-- `.devcontainer/Dockerfile` はビルド用 Dockerfile のパス。変更している場合は適宜修正  
+- `Dockerfile` はビルド用 Dockerfile のパス。変更している場合は適宜修正  
 
 ビルド途中、通信速度・ストレージ不足等で失敗する可能性があります。何度かリトライするか、通信環境やディスク容量を見直してください。
 
@@ -89,12 +89,14 @@ docker build -t my-llm-image:latest -f Dockerfile .
 
 GPU を使う場合の例（NVIDIA Container Toolkit が必須）:
 ```bash
-docker run --gpus all --rm -it \
+docker run --gpus all --rm -itd -v ~/:/mnt \
+  --name <コンテナ名>
   -p 8888:8888 \
   my-llm-image:latest \
   /bin/bash
 ```
 
+- `--name`: コンテナの名称
 - `--gpus all`: GPU をすべて利用  
 - `-p 8888:8888`: ポートをコンテナ外にフォワード（任意のアプリケーションで活用可能）  
 - `/bin/bash`: シェルに入る。アプリ直接起動したい場合はコマンドを置き換えてください。
