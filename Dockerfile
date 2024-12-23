@@ -29,6 +29,8 @@ RUN mamba install -y \
     transformers \
     sentencepiece \
     accelerate \
+    trl \
+    peft \
     datasets \
     numpy \
     pandas \ 
