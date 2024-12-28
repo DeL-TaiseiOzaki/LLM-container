@@ -38,6 +38,7 @@ RUN mamba install -y \
     scipy \
     scikit-learn \
     wandb \
+    bitsandbytes \
     jupyterlab \
     ipywidgets \
     && mamba clean -yaf
