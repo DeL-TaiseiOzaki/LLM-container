@@ -8,7 +8,10 @@
   - Python + Mambaforge (Miniforge)
   - PyTorch + CUDA
   - Transformers, Accelerate, Datasets, Sentencepiece
-  - flash-attention, vllm, deepspeed など
+  - flash-attention, vllm, deepspeed, xformers など
+  - ベクトル検索 (Faiss)
+  - エージェントや RAG に便利な langchain, llama_index
+  - データサイエンス向け (polars, pyarrow, scikit-image) など
 
 Docker コンテナとして環境をまとめることで、クラウドやオンプレ、ローカルマシンなど、どこでも同じ状態を再現でき、LLM の実験・サービス開発を効率化できます。
 
@@ -30,20 +33,22 @@ Docker コンテナとして環境をまとめることで、クラウドやオ�
 
 ## 特徴
 
-- **Python 3.10 + Mambaforge**  
-  - 柔軟に Python パッケージを管理でき、依存関係を簡潔に保持  
-- **PyTorch + CUDA 12.2**  
+- **Python 3.11 + Mambaforge**  
+  - 柔軟に Python パッケージを管理し、依存関係を簡潔に保持  
+- **PyTorch + CUDA 12.4**  
   - GPU を活用した高速な推論・学習（NVIDIA GPU）  
-- **flash-attention**  
-  - 大規模言語モデルの推論・学習を高速化  
-- **vllm**  
-  - 高スループットなモデル推論が可能  
-- **deepspeed**  
-  - 大規模モデルの分散トレーニング・メモリ最適化  
-- **Hugging Face Transformers / Accelerate / Datasets / Sentencepiece**  
-  - 最新の LLM フレームワークやトークナイザーを活用  
-- **Jupyter Lab / ipywidgets**  
-  - Notebook ベースの開発にも対応（ただし必須ではなく、任意のアプリケーションを使えます）
+- **主要ライブラリ**  
+  - **LLM 関連**: transformers, accelerate, peft, bitsandbytes, sentencepiece  
+  - **学習最適化**: flash-attention, deepspeed, xformers  
+  - **推論高速化**: vllm, optimum\[onnxruntime-gpu\]  
+  - **RAG/エージェント**: langchain, llama_index  
+  - **データ解析**: numpy, pandas, polars, pyarrow, scipy, scikit-learn, scikit-image  
+  - **ベクトル検索**: faiss-gpu  
+  - **可視化 / Notebook**: matplotlib, jupyterlab, ipywidgets  
+  - **実験管理**: wandb, ray\[default\]  
+  - **補助ツール**: openai, anthropic, huggingface_hub, evaluate  
+- **開発効率化ツール**  
+  - black, flake8, isort, mypy, pre-commit, tqdm など
 
 ---
 
@@ -56,24 +61,24 @@ Docker コンテナとして環境をまとめることで、クラウドやオ�
    - [公式ドキュメント](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) を参考にセットアップ  
    - セットアップ後、下記コマンドが正常に実行できれば OK  
      ```bash
-     docker run --rm --gpus all nvidia/cuda:12.2.0-base-ubuntu22.04 nvidia-smi
+     docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi
      ```
 
 ---
 
 ## ビルド方法
 
-**1. リポジトリをクローン**
+1. **リポジトリをクローン**
 
 ```bash
 git clone <このリポジトリのURL>
 cd <クローンしたディレクトリ>
 ```
 
-**2. Docker イメージをビルド**
+2. **Docker イメージをビルド**
 
 ```bash
-docker build -t my-llm-image:latest -f Dockerfile .
+docker build -t my-llm-image:latest -f .devcontainer/Dockerfile .
 ```
 
 - `my-llm-image:latest` はイメージに付けるタグ名（任意）  
@@ -85,37 +90,23 @@ docker build -t my-llm-image:latest -f Dockerfile .
 
 ## 利用方法
 
-### 1. コンテナを起動
+### 4.1 コンテナ内で Jupyter Lab を起動
 
-GPU を使う場合の例（NVIDIA Container Toolkit が必須）:
+GPU を使う例:  
 ```bash
-docker run --gpus all --rm -itd -v ~/:/mnt \
-  --name <コンテナ名> \
-  -p 8888:8888 \
+docker run --gpus all --rm -it -v $HOME:/mnt -p 8888:8888 \
+  --name my-llm-container \
   my-llm-image:latest \
   /bin/bash
 ```
 
-- `--name`: コンテナの名称
-- `--gpus all`: GPU をすべて利用  
-- `-p 8888:8888`: ポートをコンテナ外にフォワード（任意のアプリケーションで活用可能）  
-- `/bin/bash`: シェルに入る。アプリ直接起動したい場合はコマンドを置き換えてください。
-
-一般利用
-```bash
-docker run --gpus all --rm -itd -v ~/:/mnt --name <コンテナ名> my-llm-image:latest /bin/bash
-```
-これまで開発環境は構築完了
-
-### 2. コンテナ内で Jupyter Lab を起動
-
-任意で、Notebook ベースの開発を行いたい場合:
+コンテナ内に入ったら、Jupyter Lab を起動して Notebook 開発を進められます:
 ```bash
 jupyter lab --ip 0.0.0.0 --allow-root --no-browser
 ```
-これにより、ホスト側ブラウザから [http://localhost:8888](http://localhost:8888) へアクセスすれば Jupyter Lab を使用できます（ログに表示されるトークンや URL を使用）。
+すると、ホストマシンのブラウザで [http://localhost:8888](http://localhost:8888) にアクセスし、表示されるトークンを使って Jupyter Lab に入れます。
 
-### 3. CLI / FastAPI / その他アプリケーション
+### 4.2 CLI / FastAPI / その他アプリケーション
 
 Notebook 以外にも、コンテナ内で自由にコマンドを実行できます。
 ```bash
@@ -125,7 +116,7 @@ python scripts/my_llm_script.py
 # 例: FastAPI アプリを起動
 uvicorn my_app:app --host 0.0.0.0 --port 8080
 ```
-ポート番号を変えた場合は、起動オプションの `-p 8080:8080` なども合わせて変更してください。
+ポート番号を変更した場合は、コンテナ起動時の `-p` オプションを合わせて修正してください。
 
 ---
 
@@ -158,8 +149,10 @@ uvicorn my_app:app --host 0.0.0.0 --port 8080
 3. **“E: You don't have enough free space”**  
    - Docker に割り当てる容量不足。Docker Desktop の「Resources > Disk Image Size」から拡大  
 4. **GPU が見つからない**  
-   - `docker run --rm --gpus all nvidia/cuda:12.2.0-base-ubuntu22.04 nvidia-smi` で確認  
+   - `docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi` で確認  
    - NVIDIA Container Toolkit / ドライバが正しくセットアップされているか確認  
 5. **特定ライブラリのバージョン依存エラー**  
-   - flash-attention や PyTorch+CUDA のバージョンミスマッチ  
-   - Dockerfile を修正して依存ライブラリのバージョンを合わせるか、pip install し直す  
+   - flash-attention, PyTorch+CUDA, xformers のバージョンミスマッチ  
+   - Dockerfile を修正して依存ライブラリのバージョンを合わせるか、pip/conda でアップデート or ダウングレード  
+
+---
