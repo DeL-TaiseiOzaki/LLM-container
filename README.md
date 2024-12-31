@@ -90,7 +90,7 @@ docker build -t my-llm-image:latest -f .devcontainer/Dockerfile .
 
 ## 利用方法
 
-### 4.1 コンテナ内で Jupyter Lab を起動
+### 4.1　コンテナの起動
 
 GPU を使う例:  
 ```bash
