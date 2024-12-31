@@ -1,6 +1,8 @@
+# --------------------------------------------------------------------------------
 # .devcontainer/Dockerfile
+# --------------------------------------------------------------------------------
 
-# NVIDIA CUDA ベースで Ubuntu 22.04 を利用（タグは必要に応じて適宜変更可能）
+# NVIDIA CUDA ベースで Ubuntu 22.04 を利用（タグは必要に応じて変更可能）
 FROM nvidia/cuda:12.4.0-devel-ubuntu22.04
 
 # OS パッケージのインストール
@@ -19,31 +21,42 @@ RUN curl -fsSL \
   && bash /tmp/mambaforge.sh -b -p /opt/conda \
   && rm /tmp/mambaforge.sh
 
-
 # conda/mamba コマンドを PATH に通す
 ENV PATH /opt/conda/bin:$PATH
+# Python でバッファリングが発生しないように (ログがすぐ表示される)
+ENV PYTHONUNBUFFERED=1
 
-# PyTorch + CUDA + 主要ライブラリをインストール
-RUN mamba install -y \
+# --------------------------------------------------------------------------------
+# 1. conda (mamba) 経由で基本ライブラリ + LLM 主要ライブラリをインストール
+# --------------------------------------------------------------------------------
+RUN mamba install -y -c conda-forge \
     python=3.11 \
     transformers \
     sentencepiece \
     accelerate \
     trl \
     peft \
+    bitsandbytes \
     datasets \
     numpy \
-    pandas \ 
+    pandas \
     matplotlib \
     scipy \
     scikit-learn \
+    scikit-image \
     wandb \
-    bitsandbytes \
     jupyterlab \
     ipywidgets \
+    pyarrow \
+    polars \
+    faiss-gpu \
+    tqdm \
     && mamba clean -yaf
 
-# PyTorch + CUDAをpipでインストール
+# --------------------------------------------------------------------------------
+# 2. PyTorch + CUDA を公式ホイールから pip でインストール
+#    （pytorch.org の "cu124" ホイールを利用）
+# --------------------------------------------------------------------------------
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir \
         torch \
@@ -51,14 +64,30 @@ RUN pip install --no-cache-dir --upgrade pip \
         torchaudio \
         --index-url https://download.pytorch.org/whl/cu124
 
-# flashattention, vllm, deepspeed などをpipでインストール
+# --------------------------------------------------------------------------------
+# 3. pip で追加ライブラリ (flash-attn, vllm, deepspeed, etc.) をまとめてインストール
+# --------------------------------------------------------------------------------
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir \
         flash-attn \
         vllm \
         deepspeed \
         openai \
-        anthropic
+        anthropic \
+        xformers \
+        evaluate \
+        huggingface_hub \
+        "optimum[onnxruntime-gpu]" \
+        langchain \
+        llama_index \
+        "ray[default]" \
+        black \
+        flake8 \
+        isort \
+        mypy \
+        pre-commit
 
+# --------------------------------------------------------------------------------
 # 作業ディレクトリを設定
+# --------------------------------------------------------------------------------
 WORKDIR /mnt
