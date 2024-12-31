@@ -91,14 +91,24 @@ docker build -t my-llm-image:latest -f .devcontainer/Dockerfile .
 ## 利用方法
 
 ### 4.1　コンテナの起動
-
-GPU を使う例:  
 ```bash
-docker run --gpus all --rm -it -v $HOME:/mnt -p 8888:8888 \
-  --name my-llm-container \
+docker run --gpus all --rm -itd -v ~/:/mnt \
+  --name <コンテナ名> \
+  -p 8888:8888 \
   my-llm-image:latest \
   /bin/bash
 ```
+
+- `--name`: コンテナの名称
+- `--gpus all`: GPU をすべて利用  
+- `-p 8888:8888`: ポートをコンテナ外にフォワード（任意のアプリケーションで活用可能）  
+- `/bin/bash`: シェルに入る。アプリ直接起動したい場合はコマンドを置き換えてください。
+
+一般利用
+```bash
+docker run --gpus all --rm -itd -v ~/:/mnt --name <コンテナ名> my-llm-image:latest /bin/bash
+```
+これまで開発環境は構築完了
 
 コンテナ内に入ったら、Jupyter Lab を起動して Notebook 開発を進められます:
 ```bash
