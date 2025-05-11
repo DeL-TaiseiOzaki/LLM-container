@@ -1,8 +1,10 @@
 # --------------------------------------------------------------------------------
 # .devcontainer/Dockerfile
 # --------------------------------------------------------------------------------
+# ベースイメージを変更 - NVIDIA公式のPyTorchコンテナを使用
+FROM nvcr.io/nvidia/pytorch:24.05-py3
 
-# NVIDIA CUDA ベースで Ubuntu 22.04 を利用（タグは必要に応じて変更可能）
+# あるいは現在のベースイメージを維持し、必要なツールを明示的にインストール
 FROM nvidia/cuda:12.4.0-devel-ubuntu22.04
 
 # OS パッケージのインストール
@@ -13,17 +15,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Mambaforge (Miniforge) のインストール
-ENV MAMBAFORGE_VERSION=latest
 RUN curl -fsSL \
-  https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh \
-  -o /tmp/mambaforge.sh \
-  && bash /tmp/mambaforge.sh -b -p /opt/conda \
-  && rm /tmp/mambaforge.sh
+  https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh \
+  -o /tmp/miniforge.sh \
+  && bash /tmp/miniforge.sh -b -p /opt/conda \
+  && rm /tmp/miniforge.sh
 
 # conda/mamba コマンドを PATH に通す
-ENV PATH /opt/conda/bin:$PATH
-# Python でバッファリングが発生しないように (ログがすぐ表示される)
+ENV PATH=/opt/conda/bin:$PATH
+
+ENV CUDA_HOME=/usr/local/cuda
+ENV PATH=${CUDA_HOME}/bin:${PATH}
+ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
+
+# 環境変数の設定も修正（警告の解消）
 ENV PYTHONUNBUFFERED=1
 
 # --------------------------------------------------------------------------------
@@ -51,6 +56,7 @@ RUN mamba install -y -c conda-forge \
     polars \
     faiss-gpu \
     tqdm \
+    unsloth \
     && mamba clean -yaf
 
 # --------------------------------------------------------------------------------
@@ -67,14 +73,10 @@ RUN pip install --no-cache-dir --upgrade pip \
 # --------------------------------------------------------------------------------
 # 3. pip で追加ライブラリ (flash-attn, vllm, deepspeed, etc.) をまとめてインストール
 # --------------------------------------------------------------------------------
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir \
-        flash-attn \
-        vllm \
-        deepspeed \
+# 基本的なライブラリを先にインストール
+RUN pip install --no-cache-dir \
         openai \
         anthropic \
-        xformers \
         evaluate \
         huggingface_hub \
         "optimum[onnxruntime-gpu]" \
@@ -85,9 +87,18 @@ RUN pip install --no-cache-dir --upgrade pip \
         flake8 \
         isort \
         mypy \
-        pre-commit
+        pre-commit \
+        ninja \
+        packaging \
+        wheel \
+        setuptools \
 
-# --------------------------------------------------------------------------------
+
+# CUDA依存ライブラリを個別にインストール
+RUN pip install --no-cache-dir \
+        vllm \
+        deepspeed \
+        xformers
+
 # 作業ディレクトリを設定
-# --------------------------------------------------------------------------------
 WORKDIR /mnt
