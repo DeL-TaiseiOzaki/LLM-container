@@ -39,7 +39,7 @@ RUN mamba install -y -c conda-forge \
     transformers \
     sentencepiece \
     accelerate \
-    trl \
+    trl=0.12.0 \
     peft \
     bitsandbytes \
     datasets \
@@ -91,7 +91,7 @@ RUN pip install --no-cache-dir \
         ninja \
         packaging \
         wheel \
-        setuptools \
+        setuptools
 
 
 # CUDA依存ライブラリを個別にインストール
