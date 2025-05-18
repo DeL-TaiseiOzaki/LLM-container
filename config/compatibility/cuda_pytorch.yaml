@@ -1,0 +1,13 @@
+# CUDA-PyTorchの互換性マップ
+# 情報源: https://pytorch.org/get-started/previous-versions/
+cuda:
+  "12.1":
+    compatible_pytorch: ["2.2.0", "2.1.0", "2.0.0"]
+  "12.0":
+    compatible_pytorch: ["2.1.0", "2.0.0"]
+  "11.8":
+    compatible_pytorch: ["2.1.0", "2.0.0", "1.13.1", "1.13.0", "1.12.1"]
+  "11.7":
+    compatible_pytorch: ["2.0.0", "1.13.1", "1.13.0", "1.12.1", "1.12.0"]
+  "11.6":
+    compatible_pytorch: ["1.13.1", "1.13.0", "1.12.1", "1.12.0", "1.11.0"]

@@ -1,0 +1,48 @@
+# デフォルト設定
+base:
+  image: "nvcr.io/nvidia/pytorch"
+  tag: "24.05-py3"
+  cuda_version: "12.1"
+  python_version: "3.10"
+
+gpu:
+  architecture: "hopper"
+  count: 1
+  multi_node: false
+  nodes: 1
+  optimization: true
+
+deep_learning:
+  pytorch:
+    version: "2.2.0"
+    source: "pip"
+  
+  attention:
+    flash_attention: true
+    flash_attention_version: "2.3.3"
+    xformers: true
+    xformers_version: "0.0.24"
+    triton: false
+
+claude_code:
+  install: true
+  version: "latest"
+
+libraries:
+  use_preset: true
+  preset: "standard"
+
+environment:
+  preset:
+    hopper: true
+    multi_gpu: false
+  
+  custom: []
+
+workspace:
+  directory: "/mnt"
+
+distributed:
+  enable: false
+  backend: "nccl"
+  init_method: "env://"
