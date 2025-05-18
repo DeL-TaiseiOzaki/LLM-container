@@ -1,4 +1,4 @@
-# 自動生成されたDockerfile - 2025-05-18 17:26:36
+# 自動生成されたDockerfile - 2025-05-18 21:50:13
 FROM nvcr.io/nvidia/pytorch:24.05-py3
 
 # ────────────── 基本 ENV ──────────────
@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # ────────────── PyTorch ──────────────
 RUN pip uninstall -y torch torchvision torchaudio || true
-RUN pip install torch==2.7.0 torchvision==2.7.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
+RUN pip install torch==2.7.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128
 
 # ────────────── bitsandbytes（手動ビルド） ──────────────
 RUN git clone --depth 1 https://github.com/bitsandbytes-foundation/bitsandbytes.git && \

@@ -121,6 +121,7 @@ def main():
     run_parser = subparsers.add_parser("run", help="Dockerコンテナを実行")
     run_parser.add_argument("--image", default="llm-env:latest", help="イメージ名")
     run_parser.add_argument("--name", default="llm-container", help="コンテナ名")
+    run_parser.add_argument("--config", default="config.yaml", help="設定ファイルのパス") 
     
     # オールインワンコマンド
     all_parser = subparsers.add_parser("all", help="生成、ビルド、実行を一度に行う")
@@ -141,7 +142,7 @@ def main():
         return
     
     # 設定を読み込む
-    if args.command in ["validate", "generate", "build", "all"]:
+    if args.command in ["validate", "generate", "build", "all", "run"]:
         if not os.path.exists(args.config):
             print_colored(f"エラー: 設定ファイル {args.config} が見つかりません", "red")
             return
@@ -185,8 +186,12 @@ def main():
     
     # 実行コマンド
     if args.command == "run":
-        # コンテナを起動
-        run_docker_container(args.image, args.name, config["gpu"]["count"] if "gpu" in config else 0)
+        gpu_count = 0
+        try:
+            gpu_count = config.get("gpu", {}).get("count", 0)
+        except NameError:
+            pass   # config が無いケースは 0 とする
+        run_docker_container(args.image, args.name, gpu_count)
         return
     
     # オールインワンコマンド
