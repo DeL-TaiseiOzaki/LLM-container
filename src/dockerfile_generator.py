@@ -28,23 +28,21 @@ def _cuda_suffix(cuda_version: str) -> str:
 # ----------------------------------------------------------------
 def generate_pytorch_install_command(config: Dict[str, Any]) -> str:
     """
-    CUDA-specific wheel を使って torch / torchvision / torchaudio を一括インストール
-    例:
-        pip install torch==2.7.0 torchvision==2.7.0 torchaudio==2.7.0 \
-            --index-url https://download.pytorch.org/whl/cu128
+    公式推奨スタイル:
+        pip install torch torchvision torchaudio --index-url …/cu128
+    torch のみユーザーが version を明示していれば固定し、それ以外は最新版を取得。
     """
     pt_cfg = config["deep_learning"]["pytorch"]
-    cuda_ver = config["base"]["cuda_version"]
-    cuda_suffix = _cuda_suffix(cuda_ver)
+    torch_pkg = "torch"
+    if pt_cfg.get("version"):
+        torch_pkg += f"=={pt_cfg['version']}"
 
-    version = pt_cfg.get("version", "")
-    if version:
-        ver_spec = f"=={version}"
-    else:
-        ver_spec = ""
+    cuda_suffix = _cuda_suffix(config["base"]["cuda_version"])
 
-    packages = " ".join(f"{pkg}{ver_spec}" for pkg in ("torch", "torchvision", "torchaudio"))
-    return f"pip install {packages} --index-url https://download.pytorch.org/whl/{cuda_suffix}"
+    return (
+        f"pip install {torch_pkg} torchvision torchaudio "
+        f"--index-url https://download.pytorch.org/whl/{cuda_suffix}"
+    )
 
 
 # ----------------------------------------------------------------
