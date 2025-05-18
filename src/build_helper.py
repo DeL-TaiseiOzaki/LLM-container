@@ -7,6 +7,7 @@ import platform
 import subprocess
 from typing import Dict, Any, Tuple, Optional
 
+
 def check_docker_installed() -> bool:
     """Dockerがインストールされているか確認"""
     try:

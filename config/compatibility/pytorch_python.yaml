@@ -1,6 +1,14 @@
 # PyTorch-Pythonの互換性マップ
 # 情報源: https://pytorch.org/get-started/previous-versions/
 pytorch:
+  "2.7.0":
+    compatible_python: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+  "2.6.0":
+    compatible_python: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+  "2.5.0":
+    compatible_python: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+  "2.4.0":
+    compatible_python: ["3.8", "3.9", "3.10", "3.11", "3.12"]
   "2.2.0":
     compatible_python: ["3.8", "3.9", "3.10", "3.11", "3.12"]
   "2.1.0":

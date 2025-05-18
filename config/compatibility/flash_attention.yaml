@@ -1,6 +1,9 @@
 # Flash Attentionの互換性マップ
 # 情報源: https://github.com/Dao-AILab/flash-attention
 flash_attention:
+  "2.7.4.post1":
+    compatible_cuda: ["11.4", "11.8", "12.0", "12.1", "12.4", "12.6.3", "12.8"]
+    compatible_pytorch: ["1.12.0", "2.0.0", "2.1.0", "2.2.0", "2.3.0", "2.4.0", "2.5.0", "2.6.0", "2.7.0"]
   "2.3.3":
     compatible_cuda: ["11.8", "12.0", "12.1"]
     compatible_pytorch: ["2.0.0", "2.1.0", "2.2.0"]

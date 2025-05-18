@@ -4,15 +4,15 @@ from typing import Dict, Any, List
 # ライブラリプリセット
 LIBRARY_PRESETS = {
     "minimal": [
-        {"name": "transformers", "version": ">=4.40.0"},
+        {"name": "transformers", "version": ">=4.51.3"},
         {"name": "numpy", "install": True},
         {"name": "pandas", "install": True},
         {"name": "matplotlib", "install": True}
     ],
     "standard": [
-        {"name": "transformers", "version": ">=4.40.0"},
-        {"name": "accelerate", "version": ">=0.29.3"},
-        {"name": "peft", "version": ">=0.10.0"},
+        {"name": "transformers", "version": ">=4.51.3"},
+        {"name": "accelerate", "version": ">=1.7.0"},
+        {"name": "peft", "version": ">=0.15.2"},
         {"name": "datasets", "install": True},
         {"name": "sentencepiece", "install": True},
         {"name": "numpy", "install": True},
@@ -24,10 +24,10 @@ LIBRARY_PRESETS = {
     ],
     "full": [
         # トランスフォーマー系
-        {"name": "transformers", "version": ">=4.40.0"},
-        {"name": "accelerate", "version": ">=0.29.3"},
-        {"name": "peft", "version": ">=0.10.0"},
-        {"name": "trl", "version": ">=0.8.6"},
+        {"name": "transformers", "version": ">=4.51.3"},
+        {"name": "accelerate", "version": ">=1.7.0"},
+        {"name": "peft", "version": ">=0.15.2"},
+        {"name": "trl", "version": ">=0.17.0"},
         {"name": "datasets", "install": True},
         {"name": "evaluate", "install": True},
         {"name": "sentencepiece", "install": True},
@@ -35,15 +35,17 @@ LIBRARY_PRESETS = {
         {"name": "einops", "install": True},
         
         # LLM関連
-        {"name": "unsloth", "source": "git+https://github.com/unslothai/unsloth.git"},
+        {"name": "unsloth", "version": ">=2025.3.14"},
+        {"name": "torchtune", "install": True},
         {"name": "langchain", "install": True},
         {"name": "llama-index", "version": ">=0.10.0"},
         {"name": "optimum", "extra": "[onnxruntime-gpu]"},
-        {"name": "vllm", "install": True},
+        {"name": "vllm", "version": ">=0.9.0"},
+        {"name": "lightllm", "install": True},
         {"name": "huggingface_hub", "install": True},
         
         # 最適化ツール
-        {"name": "deepspeed", "install": True},
+        {"name": "deepspeed", "version": ">=0.16.1"},
         {"name": "ray", "extra": "[default]"},
         
         # データ処理
@@ -52,6 +54,11 @@ LIBRARY_PRESETS = {
         {"name": "pyarrow", "install": True},
         {"name": "polars", "install": True},
         {"name": "faiss-gpu", "install": True},
+        
+        # ベクトルデータベース
+        {"name": "milvus-client", "install": True},
+        {"name": "qdrant-client", "install": True},
+        {"name": "chromadb", "install": True},
         
         # 可視化・開発ツール
         {"name": "matplotlib", "install": True},
@@ -76,10 +83,10 @@ LIBRARY_PRESETS = {
     ],
     "research": [
         # Full環境のすべて + 研究特化の追加ライブラリ
-        {"name": "transformers", "version": ">=4.40.0"},
-        {"name": "accelerate", "version": ">=0.29.3"},
-        {"name": "peft", "version": ">=0.10.0"},
-        {"name": "trl", "version": ">=0.8.6"},
+        {"name": "transformers", "version": ">=4.51.3"},
+        {"name": "accelerate", "version": ">=1.7.0"},
+        {"name": "peft", "version": ">=0.15.2"},
+        {"name": "trl", "version": ">=0.17.0"},
         # ...（fullの内容）
         
         # 研究特化の追加ライブラリ
@@ -92,7 +99,8 @@ LIBRARY_PRESETS = {
         {"name": "plotly", "install": True},
         {"name": "streamlit", "install": True},
         {"name": "ax-platform", "install": True},
-        {"name": "mlflow", "install": True}
+        {"name": "mlflow", "install": True},
+        {"name": "axolotl", "install": True}
     ]
 }
 
