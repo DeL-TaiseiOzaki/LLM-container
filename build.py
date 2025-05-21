@@ -40,9 +40,6 @@ def initialize_project():
     # ディレクトリ構造の作成
     setup_directories()
     
-    # 各ファイルのコピーまたは作成処理
-    # (実際のコードでは、テンプレートファイルやデフォルト設定などを作成)
-    
     print_colored("プロジェクトの初期化が完了しました。", "green")
 
 def validate_and_warn(config, compatibility_maps) -> List[str]:
@@ -122,6 +119,7 @@ def main():
     run_parser.add_argument("--image", default="llm-env:latest", help="イメージ名")
     run_parser.add_argument("--name", default="llm-container", help="コンテナ名")
     run_parser.add_argument("--config", default="config.yaml", help="設定ファイルのパス") 
+    run_parser.add_argument("--port", default="8888", help="ホスト側のポート番号")
     
     # オールインワンコマンド
     all_parser = subparsers.add_parser("all", help="生成、ビルド、実行を一度に行う")

@@ -55,16 +55,15 @@ RUN pip install -U --index-url https://aiinfra.pkgs.visualstudio.com/PublicPacka
 RUN pip install --no-cache-dir \
 {%- for lib in libraries_flat %}
 {%- if lib.source is defined %}
-    {{ lib.source }}{% if not loop.last %} && \{% endif %}
+{{ lib.source }}{% if not loop.last %} \{% endif %}
 {%- elif lib.install is defined and lib.install %}
-    {{ lib.name }}{% if lib.extra is defined %}[{{ lib.extra }}]{% endif %}{% if not loop.last %} \{% endif %}
+{{ lib.name }}{% if lib.extra is defined %}[{{ lib.extra }}]{% endif %}{% if not loop.last %} \{% endif %}
 {%- elif lib.version is defined and lib.version %}
-    {{ lib.name }}{{ lib.version }}{% if not loop.last %} \{% endif %}
+{{ lib.name }}{{ lib.version }}{% if not loop.last %} \{% endif %}
 {%- else %}
-    {{ lib.name }}{% if not loop.last %} \{% endif %}
+{{ lib.name }}{% if not loop.last %} \{% endif %}
 {%- endif %}
-{% endfor %}
-    && echo "Python libraries installed successfully"
+{%- endfor %} && echo "Python libraries installed successfully"
 {% endif %}
 
 {% if claude_code.install %}

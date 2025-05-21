@@ -1,4 +1,4 @@
-# 自動生成されたDockerfile - 2025-05-21 05:45:39
+# 自動生成されたDockerfile - 2025-05-21 06:51:47
 FROM nvcr.io/nvidia/pytorch:24.05-py3
 
 # ────────────── 基本 ENV ──────────────
@@ -41,7 +41,27 @@ RUN pip install ninja && \
 RUN pip install -U --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/Triton-Nightly/pypi/simple/ triton-nightly
 
 # ────────────── 追加 Python ライブラリ ──────────────
-RUN pip install --no-cache-dir \    transformers>=4.41.0 \    peft>=0.10.0 \    accelerate>=0.29.3 \    deepspeed \    trl>=0.10.0 \    packing \    ninja \    datasets \    huggingface_hub \    sentencepiece \    tokenizers \    safetensors \    evaluate \    numpy \    pandas \    wandb \    jupyterlab \    ipywidgets \    tqdm \    einops    && echo "Python libraries installed successfully"
+RUN pip install --no-cache-dir \
+transformers>=4.41.0 \
+peft>=0.10.0 \
+accelerate>=0.29.3 \
+deepspeed \
+trl>=0.10.0 \
+packaging \
+ninja \
+datasets \
+huggingface_hub \
+sentencepiece \
+tokenizers \
+safetensors \
+evaluate \
+numpy \
+pandas \
+wandb \
+jupyterlab \
+ipywidgets \
+tqdm \
+einops && echo "Python libraries installed successfully"
 
 # ────────────── Claude Code ──────────────
 RUN npm install -g @anthropic-ai/claude-code

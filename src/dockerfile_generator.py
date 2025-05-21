@@ -137,8 +137,11 @@ def generate_dockerfile(config: Dict[str, Any]) -> str:
     # テンプレートのレンダリング
     dockerfile_content = template.render(**render_cfg)
     
-    # 生成後のクリーンアップ：連続する複数の空行を単一の空行に置き換え
+    # 生成後のクリーンアップ
     import re
+    # 連続する複数の空行を単一の空行に置き換え
     dockerfile_content = re.sub(r'\n{3,}', '\n\n', dockerfile_content)
-    
+    # バックスラッシュの後に適切な改行を追加
+    dockerfile_content = re.sub(r'\\([^\n])', r'\\\n\1', dockerfile_content)
+
     return dockerfile_content

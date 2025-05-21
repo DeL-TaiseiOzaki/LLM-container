@@ -39,7 +39,7 @@ libraries:
       - {"name": "deepspeed", "install": true}  # ZeRO最適化
       - {"name": "bitsandbytes", "version": ""}  # 量子化
       - {"name": "trl", "version": ">=0.10.0"}  # 強化学習フレームワーク
-      - {"name": "packing", "install": true}  # バージョン指定なし
+      - {"name": "packaging", "install": true}  # バージョン指定なし
       - {"name": "ninja", "install": true}    # バージョン指定なし
 
     
