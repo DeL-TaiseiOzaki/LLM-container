@@ -4,8 +4,8 @@ LLM（大規模言語モデル）開発・推論・微調整用のDocker環境�
 
 <div align="center">
   <img src="https://img.shields.io/badge/Python-3.8%2B-blue" alt="Python 3.8+">
-  <img src="https://img.shields.io/badge/CUDA-11.8%20|%2012.1-green" alt="CUDA 11.8/12.1">
-  <img src="https://img.shields.io/badge/PyTorch-2.0%20|%202.1%20|%202.2-red" alt="PyTorch 2.0/2.1/2.2">
+  <img src="https://img.shields.io/badge/CUDA-11.8%20|%2012.1%20|%2012.8-green" alt="CUDA 11.8/12.1/12.8">
+  <img src="https://img.shields.io/badge/PyTorch-2.0%20|%202.1%20|%202.7-red" alt="PyTorch 2.0/2.1/2.7">
   <img src="https://img.shields.io/badge/license-Apache%202.0-lightgrey" alt="License">
 </div>
 
@@ -65,7 +65,7 @@ python build.py all --config config.yaml
 base:
   image: "nvcr.io/nvidia/pytorch"
   tag: "24.05-py3"
-  cuda_version: "12.1"
+  cuda_version: "12.8"
   python_version: "3.10"
 
 gpu:
@@ -75,14 +75,14 @@ gpu:
 
 deep_learning:
   pytorch:
-    version: "2.2.0"
+    version: "2.7.0"      # バージョン指定、空文字列("")で最新版
+    source: "pip"
+    cuda_specific: true
   
   attention:
     flash_attention: true
-    flash_attention_version: "2.3.3"
-
-claude_code:
-  install: true
+    xformers: true
+    xformers_version: "0.0.30"
 
 libraries:
   use_preset: true
@@ -121,7 +121,7 @@ python build.py run --image my-llm-env:latest --name my-llm-container
 |------------|------|-----|
 | `image` | ベースイメージ | `"nvcr.io/nvidia/pytorch"` |
 | `tag` | イメージタグ | `"24.05-py3"` |
-| `cuda_version` | CUDAバージョン | `"12.1"`, `"11.8"` |
+| `cuda_version` | CUDAバージョン | `"12.8"`, `"11.8"` |
 | `python_version` | Pythonバージョン | `"3.10"`, `"3.11"` |
 
 ### GPU設定（`gpu`）
@@ -137,12 +137,52 @@ python build.py run --image my-llm-env:latest --name my-llm-container
 
 | オプション | 説明 | 例 |
 |------------|------|-----|
-| `pytorch.version` | PyTorchバージョン | `"2.2.0"`, `"2.0.0"` |
+| `pytorch.version` | PyTorchバージョン | `"2.7.0"`, `""` (空文字列で最新版) |
 | `attention.flash_attention` | Flash Attention有効化 | `true`, `false` |
-| `attention.flash_attention_version` | Flash Attentionバージョン | `"2.3.3"` |
 | `attention.xformers` | xformers有効化 | `true`, `false` |
+| `attention.xformers_version` | xformersバージョン | `"0.0.30"`, `""` (空文字列で最新版) |
 
-### ライブラリプリセット（`libraries`）
+### ライブラリ設定（`libraries`）
+
+#### プリセット使用時
+
+```yaml
+libraries:
+  use_preset: true
+  preset: "standard"  # minimal, standard, full, research
+```
+
+#### カスタムライブラリ設定
+
+```yaml
+libraries:
+  use_preset: false
+  custom:
+    category_name:  # カテゴリ名（任意）
+      # バージョン指定あり
+      - {"name": "transformers", "version": ">=4.41.0"}
+      
+      # バージョン指定なし（最新版）
+      - {"name": "datasets", "install": true}
+      
+      # extras指定
+      - {"name": "optimum", "install": true, "extra": "[onnxruntime-gpu]"}
+      
+      # 特殊インストール方法
+      - {"name": "flash-attn", "source": "pip install flash-attn --no-build-isolation"}
+```
+
+#### ライブラリ定義オプション
+
+| オプション | 説明 | 例 |
+|------------|------|-----|
+| `name` | パッケージ名 | `"transformers"` |
+| `version` | バージョン指定 | `">=4.41.0"`, `"==2.7.0"` |
+| `install` | バージョン指定なしでインストール | `true` |
+| `extra` | extras指定 | `"[feature]"` |
+| `source` | カスタムインストールコマンド | `"pip install ... --extra-index-url ..."` |
+
+#### ライブラリプリセット（`libraries.preset`）
 
 | プリセット | 説明 |
 |------------|------|
@@ -151,27 +191,149 @@ python build.py run --image my-llm-env:latest --name my-llm-container
 | `full` | 完全な開発環境（HuggingFace全体、最適化ツール、視覚化ツール等） |
 | `research` | 研究特化環境（full + 実験・分析ツール） |
 
+### 環境変数設定（`environment`）
+
+```yaml
+environment:
+  preset:
+    hopper: true
+    multi_gpu: true
+  
+  custom:
+    - {"name": "PYTORCH_CUDA_ALLOC_CONF", "value": "max_split_size_mb:512"}
+    - {"name": "NCCL_DEBUG", "value": "INFO"}
+```
+
+## 設定ファイル例
+
+### LoRA微調整用設定例
+
+```yaml
+base:
+  image: "nvcr.io/nvidia/pytorch"
+  tag: "24.05-py3"
+  cuda_version: "12.8"
+  python_version: "3.10"
+
+gpu:
+  architecture: "hopper"
+  count: 4
+  multi_node: false
+
+deep_learning:
+  pytorch:
+    version: ""  # 空文字列で最新バージョン自動選択
+    source: "pip"
+    cuda_specific: true
+  
+  attention:
+    flash_attention: true  # バージョン指定なしで最適化インストール
+    xformers: true
+    xformers_version: "0.0.30"
+    triton: true
+
+libraries:
+  use_preset: false
+  custom:
+    lora:
+      - {"name": "transformers", "version": ">=4.41.0"}
+      - {"name": "peft", "version": ">=0.10.0"}
+      - {"name": "accelerate", "version": ">=0.29.3"}
+      - {"name": "deepspeed", "install": true}  # バージョン指定なし
+      - {"name": "trl", "version": ">=0.10.0"}
+      - {"name": "ninja", "install": true}
+    
+    data:
+      - {"name": "datasets", "install": true}
+      - {"name": "huggingface_hub", "install": true}
+      - {"name": "sentencepiece", "install": true}
+      
+    utils:
+      - {"name": "flash-attn", "source": "pip install flash-attn --no-build-isolation"}
+      - {"name": "wandb", "install": true}
+      - {"name": "jupyterlab", "install": true}
+```
+
+### 研究環境用設定例
+
+```yaml
+base:
+  image: "nvcr.io/nvidia/pytorch"
+  tag: "24.05-py3"
+  cuda_version: "12.8"
+  python_version: "3.10"
+
+gpu:
+  architecture: "ampere"  # RTX 3090など
+  count: 2
+
+deep_learning:
+  pytorch:
+    version: "2.7.0"  # 特定バージョン指定
+  
+  attention:
+    flash_attention: true
+    flash_attention_version: "2.7.4.post1"  # 特定バージョン指定
+
+libraries:
+  use_preset: true
+  preset: "research"  # 研究特化プリセット使用
+```
+
 ## トラブルシューティング
+
+### バージョン関連の問題
+
+- **空バージョン文字列エラー**: ライブラリ定義で `"version": ""` と空文字列を指定した場合、代わりに `"install": true` を使用してください。
+  
+  ```yaml
+  # NG
+  - {"name": "package", "version": ""}
+  
+  # OK
+  - {"name": "package", "install": true}
+  ```
+
+- **バージョン指定構文エラー**: パッケージバージョン指定には、`==`, `>=`, `<=`, `~=` などの演算子を使用できます。
+  
+  ```yaml
+  # 特定バージョン
+  - {"name": "transformers", "version": "==4.41.0"}
+  
+  # 最小バージョン
+  - {"name": "peft", "version": ">=0.10.0"}
+  ```
 
 ### CUDA関連の問題
 
-- **互換性エラー**: 設定ファイルのCUDAバージョンがホストマシンのドライバーと互換性があるか確認してください
-- **bitsandbytesビルドエラー**: ビルド時に `BNB_CUDA_VERSION` が正しく設定されているか確認してください
+- **互換性エラー**: 設定ファイルのCUDAバージョンがホストマシンのドライバーと互換性があるか確認してください。
+  
+  ```bash
+  # ドライバーバージョン確認
+  nvidia-smi
+  ```
 
-### PyTorch関連の問題
-
-- **バージョン不一致**: PyTorchとCUDAの互換性を確認（`validate` コマンドを使用）
-- **GPUが認識されない**: NVIDIA Container Toolkitが正しくインストールされているか確認
-
-### Flash Attention関連の問題
-
-- **ビルドエラー**: CUDA対応バージョンを確認し、`--no-build-isolation` オプションが指定されているか確認
-- **互換性エラー**: PyTorchバージョンとの互換性を検証してください
+- **Flash Attentionビルドエラー**: Flash Attentionのビルドにはビルドツールが必要です。特殊なインストール方法を使用してください。
+  
+  ```yaml
+  - {"name": "flash-attn", "source": "pip install flash-attn --no-build-isolation"}
+  ```
 
 ### Docker関連の問題
 
-- **ビルド失敗**: ディスク容量や権限を確認し、Docker Daemonが実行中か確認してください
-- **GPU使用不可**: `--gpus all` オプションが指定されているか、NVIDIA Container Toolkitが正しく設定されているか確認
+- **ビルド失敗**: ディスク容量や権限を確認し、Docker Daemonが実行中か確認してください。
+  
+  ```bash
+  # Docker状態確認
+  sudo systemctl status docker
+  ```
+
+- **GPU使用不可**: `--gpus all` オプションが指定されているか、NVIDIA Container Toolkitが正しく設定されているか確認。
+  
+  ```bash
+  # テスト
+  docker run --rm --gpus all nvidia/cuda:11.0.3-base-ubuntu20.04 nvidia-smi
+  ```
 
 ## 開発ロードマップ
 

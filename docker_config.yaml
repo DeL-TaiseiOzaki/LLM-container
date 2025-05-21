@@ -13,20 +13,20 @@ gpu:
 
 deep_learning:
   pytorch:
-    version: "2.7.0"  # CUDA 12.xと互換性のある最新安定版
-    source: "pip"  # pipからインストール
+    version: ""  # 空でも問題なく、CUDA依存で最新が選択される
+    source: "pip"
     cuda_specific: true
     extras: ["torchvision", "torchaudio"]
   
   attention:
-    flash_attention: true  # 高速Attention計算に必須
-    flash_attention_version: "2.7.4.post1"  # 安定バージョン
-    xformers: true  # 追加のAttention最適化
-    xformers_version: "0.0.30"
-    triton: true  # GPUカーネル最適化
+    flash_attention: true  # trueの場合、バージョン無指定でインストール
+    flash_attention_version: ""  # 空のままでOK
+    xformers: true
+    xformers_version: "0.0.30"  
+    triton: true
 
 claude_code:
-  install: false  # Anthropicの開発支援AIツールを統合
+  install: true  # Anthropicの開発支援AIツールを統合
   version: "latest"
 
 libraries:
@@ -37,8 +37,11 @@ libraries:
       - {"name": "peft", "version": ">=0.10.0"}  # LoRA実装
       - {"name": "accelerate", "version": ">=0.29.3"}  # 分散トレーニング
       - {"name": "deepspeed", "install": true}  # ZeRO最適化
-      - {"name": "bitsandbytes", "version": ">=0.42.0"}  # 量子化
-      - {"name": "trl", "version": ">=0.8.6"}  # 強化学習フレームワーク
+      - {"name": "bitsandbytes", "version": ""}  # 量子化
+      - {"name": "trl", "version": ">=0.10.0"}  # 強化学習フレームワーク
+      - {"name": "packing", "install": true}  # バージョン指定なし
+      - {"name": "ninja", "install": true}    # バージョン指定なし
+
     
     data:  # データ処理ライブラリ
       - {"name": "datasets", "install": true}
@@ -56,7 +59,6 @@ libraries:
       - {"name": "ipywidgets", "install": true}
       - {"name": "tqdm", "install": true}
       - {"name": "einops", "install": true}  # テンソル操作
-      - {"name": "flash-attn", "install": true, "source": "pip install flash-attn --no-build-isolation"}
 
 environment:
   preset:

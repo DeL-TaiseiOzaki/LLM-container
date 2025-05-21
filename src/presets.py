@@ -87,7 +87,8 @@ LIBRARY_PRESETS = {
         {"name": "accelerate", "version": ">=1.7.0"},
         {"name": "peft", "version": ">=0.15.2"},
         {"name": "trl", "version": ">=0.17.0"},
-        # ...（fullの内容）
+        {"name": "datasets", "install": True},
+        {"name": "evaluate", "install": True},
         
         # 研究特化の追加ライブラリ
         {"name": "torch-geometric", "install": True},
