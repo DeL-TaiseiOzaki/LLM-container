@@ -29,6 +29,7 @@ deep_learning:
 claude_code:
   install: true
   version: "latest"
+  nodejs_version: "lts"
 
 libraries:
   use_preset: true

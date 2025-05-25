@@ -28,6 +28,7 @@ deep_learning:
 claude_code:
   install: true  # Anthropicの開発支援AIツールを統合
   version: "latest"
+  nodejs_version: "lts" 
 
 libraries:
   use_preset: false  # カスタムライブラリを使用

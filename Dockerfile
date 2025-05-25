@@ -1,4 +1,4 @@
-# 自動生成されたDockerfile - 2025-05-21 06:51:47
+# 自動生成されたDockerfile - 2025-05-25 06:51:32
 FROM nvcr.io/nvidia/pytorch:24.05-py3
 
 # ────────────── 基本 ENV ──────────────
@@ -11,10 +11,38 @@ ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
 # ────────────── OS パッケージ ──────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates git build-essential cmake ninja-build wget \
-    # Node.js と npm（Claude Code 用）
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
+    # 既存のNode.jsがある場合は削除（クリーンアップ）
+    && (apt-get remove -y nodejs npm || true) \
+    && apt-get autoremove -y \
     && rm -rf /var/lib/apt/lists/*
+
+# ────────────── Node.js（nvm使用）──────────────
+ENV NVM_DIR="/root/.nvm"
+ENV NODE_VERSION="lts"
+
+# nvmをインストールし、指定されたNode.jsバージョンをインストール
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
+    && . "$NVM_DIR/nvm.sh" \
+    && if [ "$NODE_VERSION" = "lts" ]; then \
+         nvm install --lts && nvm use --lts && nvm alias default lts/*; \
+       elif [ "$NODE_VERSION" = "latest" ] || [ "$NODE_VERSION" = "current" ]; then \
+         nvm install node && nvm use node && nvm alias default node; \
+       else \
+         nvm install "$NODE_VERSION" && nvm use "$NODE_VERSION" && nvm alias default "$NODE_VERSION"; \
+       fi
+
+# PATHにNode.jsを追加（どのシェルからでもアクセス可能）
+ENV PATH="$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | tail -1)/bin:${PATH}"
+
+# シェル起動時にnvmが自動読み込みされるよう設定
+RUN echo 'export NVM_DIR="$NVM_DIR"' >> ~/.bashrc \
+    && echo '[ -s "$NVM_DIR/nvm.sh" ] && \
+. "$NVM_DIR/nvm.sh"' >> ~/.bashrc \
+    && echo '[ -s "$NVM_DIR/bash_completion" ] && \
+. "$NVM_DIR/bash_completion"' >> ~/.bashrc
+
+# Claude Codeのインストール
+RUN . "$NVM_DIR/nvm.sh" && npm install -g @anthropic-ai/claude-code
 
 # ────────────── PyTorch ──────────────
 RUN pip uninstall -y torch torchvision torchaudio || true
@@ -42,29 +70,26 @@ RUN pip install -U --index-url https://aiinfra.pkgs.visualstudio.com/PublicPacka
 
 # ────────────── 追加 Python ライブラリ ──────────────
 RUN pip install --no-cache-dir \
-transformers>=4.41.0 \
-peft>=0.10.0 \
-accelerate>=0.29.3 \
-deepspeed \
-trl>=0.10.0 \
-packaging \
-ninja \
-datasets \
-huggingface_hub \
-sentencepiece \
-tokenizers \
-safetensors \
-evaluate \
-numpy \
-pandas \
-wandb \
-jupyterlab \
-ipywidgets \
-tqdm \
-einops && echo "Python libraries installed successfully"
-
-# ────────────── Claude Code ──────────────
-RUN npm install -g @anthropic-ai/claude-code
+    transformers>=4.41.0 \
+    peft>=0.10.0 \
+    accelerate>=0.29.3 \
+    deepspeed \
+    trl>=0.10.0 \
+    packaging \
+    ninja \
+    datasets \
+    huggingface_hub \
+    sentencepiece \
+    tokenizers \
+    safetensors \
+    evaluate \
+    numpy \
+    pandas \
+    wandb \
+    jupyterlab \
+    ipywidgets \
+    tqdm \
+    einops    && echo "Python libraries installed successfully"
 
 # ────────────── 分散設定（必要に応じて） ──────────────
 ENV MASTER_ADDR=localhost
@@ -83,6 +108,9 @@ ENV CUDA_DEVICE_MAX_CONNECTIONS=1
 WORKDIR /mnt
 
 # ────────────── 動作チェック ──────────────
+# Node.js & npm バージョン確認
+RUN . "$NVM_DIR/nvm.sh" && echo "Node.js version: $(node --version)" && echo "npm version: $(npm --version)"
+
 RUN python - <<'PY'
 import torch, importlib
 print("CUDA available:", torch.cuda.is_available())

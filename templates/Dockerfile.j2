@@ -12,11 +12,39 @@ ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates git build-essential cmake ninja-build wget \
 {% if claude_code.install %}
-    # Node.js と npm（Claude Code 用）
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
+    # 既存のNode.jsがある場合は削除（クリーンアップ）
+    && (apt-get remove -y nodejs npm || true) \
+    && apt-get autoremove -y \
 {% endif %}
     && rm -rf /var/lib/apt/lists/*
+
+{% if claude_code.install %}
+# ────────────── Node.js（nvm使用）──────────────
+ENV NVM_DIR="/root/.nvm"
+ENV NODE_VERSION="{{ claude_code.nodejs_version if claude_code.nodejs_version is defined else 'lts' }}"
+
+# nvmをインストールし、指定されたNode.jsバージョンをインストール
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash \
+    && . "$NVM_DIR/nvm.sh" \
+    && if [ "$NODE_VERSION" = "lts" ]; then \
+         nvm install --lts && nvm use --lts && nvm alias default lts/*; \
+       elif [ "$NODE_VERSION" = "latest" ] || [ "$NODE_VERSION" = "current" ]; then \
+         nvm install node && nvm use node && nvm alias default node; \
+       else \
+         nvm install "$NODE_VERSION" && nvm use "$NODE_VERSION" && nvm alias default "$NODE_VERSION"; \
+       fi
+
+# PATHにNode.jsを追加（どのシェルからでもアクセス可能）
+ENV PATH="$NVM_DIR/versions/node/$(ls $NVM_DIR/versions/node | tail -1)/bin:${PATH}"
+
+# シェル起動時にnvmが自動読み込みされるよう設定
+RUN echo 'export NVM_DIR="$NVM_DIR"' >> ~/.bashrc \
+    && echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' >> ~/.bashrc \
+    && echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"' >> ~/.bashrc
+
+# Claude Codeのインストール
+RUN . "$NVM_DIR/nvm.sh" && npm install -g @anthropic-ai/claude-code
+{% endif %}
 
 # ────────────── PyTorch ──────────────
 {% if deep_learning.pytorch.source == "pip" %}
@@ -55,20 +83,16 @@ RUN pip install -U --index-url https://aiinfra.pkgs.visualstudio.com/PublicPacka
 RUN pip install --no-cache-dir \
 {%- for lib in libraries_flat %}
 {%- if lib.source is defined %}
-{{ lib.source }}{% if not loop.last %} \{% endif %}
+    {{ lib.source }}{% if not loop.last %} && \{% endif %}
 {%- elif lib.install is defined and lib.install %}
-{{ lib.name }}{% if lib.extra is defined %}[{{ lib.extra }}]{% endif %}{% if not loop.last %} \{% endif %}
+    {{ lib.name }}{% if lib.extra is defined %}[{{ lib.extra }}]{% endif %}{% if not loop.last %} \{% endif %}
 {%- elif lib.version is defined and lib.version %}
-{{ lib.name }}{{ lib.version }}{% if not loop.last %} \{% endif %}
+    {{ lib.name }}{{ lib.version }}{% if not loop.last %} \{% endif %}
 {%- else %}
-{{ lib.name }}{% if not loop.last %} \{% endif %}
+    {{ lib.name }}{% if not loop.last %} \{% endif %}
 {%- endif %}
-{%- endfor %} && echo "Python libraries installed successfully"
-{% endif %}
-
-{% if claude_code.install %}
-# ────────────── Claude Code ──────────────
-RUN npm install -g @anthropic-ai/claude-code
+{% endfor %}
+    && echo "Python libraries installed successfully"
 {% endif %}
 
 # ────────────── 分散設定（必要に応じて） ──────────────
@@ -84,6 +108,11 @@ ENV {{ env_var.name }}={{ env_var.value }}
 WORKDIR {{ workspace.directory }}
 
 # ────────────── 動作チェック ──────────────
+{% if claude_code.install %}
+# Node.js & npm バージョン確認
+RUN . "$NVM_DIR/nvm.sh" && echo "Node.js version: $(node --version)" && echo "npm version: $(npm --version)"
+{% endif %}
+
 RUN python - <<'PY'
 import torch, importlib
 print("CUDA available:", torch.cuda.is_available())

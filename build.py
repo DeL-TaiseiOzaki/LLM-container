@@ -76,7 +76,7 @@ def run_docker_container(image_name: str, container_name: str, gpu_count: int) -
     
     import subprocess
     result = subprocess.run(
-        f"docker run {gpu_option} --rm -itd -v ~/:/mnt --name {container_name} -p 8888:8888 {image_name} /bin/bash",
+        f"docker run {gpu_option} --rm -itd -v ~/:/mnt --name {container_name} {image_name} /bin/bash",
         shell=True
     )
     
@@ -118,8 +118,7 @@ def main():
     run_parser = subparsers.add_parser("run", help="Dockerコンテナを実行")
     run_parser.add_argument("--image", default="llm-env:latest", help="イメージ名")
     run_parser.add_argument("--name", default="llm-container", help="コンテナ名")
-    run_parser.add_argument("--config", default="config.yaml", help="設定ファイルのパス") 
-    run_parser.add_argument("--port", default="8888", help="ホスト側のポート番号")
+    run_parser.add_argument("--config", default="config.yaml", help="設定ファイルのパス")
     
     # オールインワンコマンド
     all_parser = subparsers.add_parser("all", help="生成、ビルド、実行を一度に行う")
