@@ -67,16 +67,17 @@ def build_docker_image(dockerfile_path: str, image_name: str) -> bool:
     print_colored(f"イメージのビルドが完了しました: {image_name}", "green")
     return True
 
-def run_docker_container(image_name: str, container_name: str, gpu_count: int) -> bool:
+def run_docker_container(image_name: str, container_name: str, gpu_count: int, shm_size: str = "4g") -> bool:
     """Dockerコンテナを起動する"""
     print_colored(f"コンテナを起動しています: {container_name}", "blue")
     
     # GPUオプションを設定
     gpu_option = "--gpus all" if gpu_count > 0 else ""
     
+    # 共有メモリサイズを追加
     import subprocess
     result = subprocess.run(
-        f"docker run {gpu_option} --rm -itd -v ~/:/mnt --name {container_name} {image_name} /bin/bash",
+        f"docker run {gpu_option} --shm-size={shm_size} --rm -itd -v ~/:/mnt --name {container_name} {image_name} /bin/bash",
         shell=True
     )
     
@@ -188,7 +189,7 @@ def main():
             gpu_count = config.get("gpu", {}).get("count", 0)
         except NameError:
             pass   # config が無いケースは 0 とする
-        run_docker_container(args.image, args.name, gpu_count)
+        run_docker_container(args.image, args.name, gpu_count, "4g")  # 4gを追加
         return
     
     # オールインワンコマンド
@@ -210,7 +211,7 @@ def main():
             return
         
         # コンテナを起動
-        run_docker_container(args.image, args.container, config["gpu"]["count"])
+        run_docker_container(args.image, args.container, config["gpu"]["count"], "8g")  # 4gを追加
         return
 
 if __name__ == "__main__":

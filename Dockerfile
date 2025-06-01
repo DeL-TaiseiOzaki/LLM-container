@@ -1,4 +1,4 @@
-# 自動生成されたDockerfile - 2025-05-25 07:56:26
+# 自動生成されたDockerfile - 2025-06-01 10:40:52
 FROM nvcr.io/nvidia/pytorch:24.05-py3
 
 # ────────────── 基本 ENV ──────────────
