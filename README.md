@@ -304,6 +304,45 @@ libraries:
   - {"name": "peft", "version": ">=0.10.0"}
   ```
 
+### Node.js関連の問題
+
+- **古いNode.jsバージョンがインストールされる問題**: NVIDIAのベースイメージに古いNode.jsがプリインストールされている場合があります。
+
+  **一時的な回避策**:
+  
+  コンテナ内で以下のコマンドを実行して、手動で最新のLTSバージョンに切り替えてください：
+  
+  ```bash
+  # コンテナにアタッチ
+  docker exec -it my-llm-container bash
+  
+  # nvm環境を読み込む
+  source ~/.nvm/nvm.sh
+  
+  # 最新のLTSをインストール
+  nvm install --lts
+  nvm alias default lts/*
+  nvm use default
+  
+  # バージョンを確認
+  node --version  # v20.x.x などが表示されるはず
+  npm --version
+  
+  # Claude Codeを再インストール（必要に応じて）
+  npm install -g @anthropic-ai/claude-code
+  ```
+  
+  **永続的な解決策**:
+  
+  設定ファイルで特定のNode.jsバージョンを明示的に指定することもできます：
+  
+  ```yaml
+  claude_code:
+    install: true
+    version: "latest"
+    nodejs_version: "20.13.1"  # 特定のバージョンを指定
+  ```
+
 ### CUDA関連の問題
 
 - **互換性エラー**: 設定ファイルのCUDAバージョンがホストマシンのドライバーと互換性があるか確認してください。
