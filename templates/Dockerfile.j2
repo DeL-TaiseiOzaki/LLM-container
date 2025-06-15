@@ -8,54 +8,46 @@ ENV CUDA_HOME=/usr/local/cuda
 ENV PATH=${CUDA_HOME}/bin:${PATH}
 ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
 
+# ────────────── uv設定 ──────────────
+ENV UV_SYSTEM_PYTHON=1
+ENV UV_CACHE_DIR=/opt/uv-cache
+ENV UV_NO_PROGRESS=1
+
 # ────────────── OS パッケージ ──────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates git build-essential cmake ninja-build wget \
     && rm -rf /var/lib/apt/lists/*
 
+# ────────────── uv インストール ──────────────
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    mv /root/.cargo/bin/uv /usr/local/bin/
+
+# uvのキャッシュディレクトリを作成
+RUN mkdir -p ${UV_CACHE_DIR}
+
 {% if claude_code.install %}
-# ────────────── Node.js（nvm使用）──────────────
-ENV NVM_DIR="/root/.nvm"
-ENV NODE_VERSION="{{ claude_code.nodejs_version if claude_code.nodejs_version is defined else 'lts' }}"
-
-# 既存のNode.jsを完全に削除
-RUN apt-get update && \
-    apt-get purge -y nodejs npm && \
-    apt-get autoremove -y && \
-    rm -rf /usr/local/lib/node_modules /usr/local/bin/node /usr/local/bin/npm /usr/bin/node /usr/bin/npm && \
-    rm -rf /var/lib/apt/lists/*
-
-# nvmをインストールし、指定されたNode.jsバージョンをインストール
-RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash && \
-    export NVM_DIR="/root/.nvm" && \
-    . "$NVM_DIR/nvm.sh" && \
-    if [ "$NODE_VERSION" = "lts" ]; then \
-         nvm install --lts && nvm use --lts && nvm alias default lts/*; \
-    elif [ "$NODE_VERSION" = "latest" ] || [ "$NODE_VERSION" = "current" ]; then \
-         nvm install node && nvm use node && nvm alias default node; \
-    else \
-         nvm install "$NODE_VERSION" && nvm use "$NODE_VERSION" && nvm alias default "$NODE_VERSION"; \
-    fi && \
-    # 動的にPATHを設定
-    NODE_PATH=$(find $NVM_DIR/versions/node -maxdepth 1 -type d | tail -1) && \
-    echo "export PATH=$NODE_PATH/bin:\$PATH" >> ~/.bashrc
-
-# シェル起動時にnvmが自動読み込みされるよう設定
-RUN echo 'export NVM_DIR="/root/.nvm"' >> ~/.bashrc && \
-    echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' >> ~/.bashrc && \
-    echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"' >> ~/.bashrc
-
-# Claude Codeのインストール（nvmを明示的に読み込んでから）
-RUN bash -c "source /root/.nvm/nvm.sh && npm install -g @anthropic-ai/claude-code"
+# ────────────── Node.js (uv経由でnodeenvを使用) ──────────────
+RUN uv pip install nodeenv && \
+    nodeenv -p --node={{ claude_code.nodejs_version|default('lts') }} && \
+    npm install -g @anthropic-ai/claude-code
 {% endif %}
 
 # ────────────── PyTorch ──────────────
 {% if deep_learning.pytorch.source == "pip" %}
-RUN pip uninstall -y torch torchvision torchaudio || true
-RUN {{ pytorch_install_command }}
+# 既存のPyTorchを削除
+RUN uv pip uninstall torch torchvision torchaudio || true
+
+# PyTorchをuvでインストール
+{% set cuda_index = "cu" + cuda_short %}
+RUN uv pip install \
+    torch=={{ deep_learning.pytorch.version }} \
+    torchvision \
+    torchaudio \
+    --index-url https://download.pytorch.org/whl/{{ cuda_index }}
 {% endif %}
 
-# ────────────── bitsandbytes（手動ビルド） ──────────────
+# ────────────── bitsandbytes（ソースからビルド） ──────────────
+# bitsandbytesは特殊なビルドが必要なので従来通り
 RUN git clone --depth 1 https://github.com/bitsandbytes-foundation/bitsandbytes.git && \
     cd bitsandbytes && \
     export BNB_CUDA_VERSION={{ base.cuda_version | replace(".", "") }} && \
@@ -66,39 +58,55 @@ RUN git clone --depth 1 https://github.com/bitsandbytes-foundation/bitsandbytes.
 
 {% if deep_learning.attention.xformers %}
 # ────────────── xformers ──────────────
-RUN pip install -U "xformers{% if deep_learning.attention.xformers_version %}=={{ deep_learning.attention.xformers_version }}{% endif %}" \
-    --index-url https://download.pytorch.org/whl/{{ cuda_short }} --no-deps
+RUN uv pip install \
+    xformers{% if deep_learning.attention.xformers_version %}=={{ deep_learning.attention.xformers_version }}{% endif %} \
+    --index-url https://download.pytorch.org/whl/{{ cuda_short }}
 {% endif %}
 
 {% if deep_learning.attention.flash_attention %}
 # ────────────── Flash-Attention ──────────────
-RUN pip install ninja && \
-    pip install flash-attn --no-build-isolation
+# ビルド依存関係をuvでインストール
+RUN uv pip install ninja packaging wheel setuptools
+
+# Flash Attentionのビルドとインストール
+RUN TORCH_CUDA_ARCH_LIST="{{ gpu_arch_list|default('8.0;8.6;9.0') }}" \
+    MAX_JOBS=$(nproc) \
+    uv pip install flash-attn=={{ deep_learning.attention.flash_attention_version }} \
+    --no-build-isolation
 {% endif %}
 
 {% if deep_learning.attention.triton %}
 # ────────────── Triton ──────────────
-RUN pip install -U --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/Triton-Nightly/pypi/simple/ triton-nightly
+RUN uv pip install \
+    --index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/Triton-Nightly/pypi/simple/ \
+    triton-nightly
 {% endif %}
 
+# ────────────── ライブラリの一括インストール ──────────────
 {% if libraries_flat %}
-# ────────────── 追加 Python ライブラリ ──────────────
-RUN pip install --no-cache-dir \
+# requirements.txtを生成
+RUN cat > /tmp/requirements.txt << 'EOF'
 {%- for lib in libraries_flat %}
 {%- if lib.source is defined %}
-    {{ lib.source }}{% if not loop.last %} && \{% endif %}
-{%- elif lib.install is defined and lib.install %}
-    {{ lib.name }}{% if lib.extra is defined %}[{{ lib.extra }}]{% endif %}{% if not loop.last %} \{% endif %}
-{%- elif lib.version is defined and lib.version %}
-    {{ lib.name }}{{ lib.version }}{% if not loop.last %} \{% endif %}
+{{ lib.source }}
+{%- elif lib.version is defined %}
+{{ lib.name }}{{ lib.version }}{% if lib.extra is defined %}[{{ lib.extra }}]{% endif %}
 {%- else %}
-    {{ lib.name }}{% if not loop.last %} \{% endif %}
+{{ lib.name }}{% if lib.extra is defined %}[{{ lib.extra }}]{% endif %}
 {%- endif %}
 {% endfor %}
-    && echo "Python libraries installed successfully"
+EOF
+
+# uvで一括インストール（並列処理で高速化）
+RUN uv pip install -r /tmp/requirements.txt && \
+    rm /tmp/requirements.txt
 {% endif %}
 
-# ────────────── 分散設定（必要に応じて） ──────────────
+# ────────────── uvキャッシュの最適化 ──────────────
+# 不要なキャッシュを削除してイメージサイズを削減
+RUN uv cache clean
+
+# ────────────── 分散設定 ──────────────
 ENV MASTER_ADDR=localhost
 ENV MASTER_PORT=29500
 ENV WORLD_SIZE={{ gpu.count }}
@@ -111,24 +119,41 @@ ENV {{ env_var.name }}={{ env_var.value }}
 WORKDIR {{ workspace.directory }}
 
 # ────────────── 動作チェック ──────────────
-{% if claude_code.install %}
-# Node.js & npm バージョン確認（nvmを明示的に読み込んでから）
-RUN bash -c "source /root/.nvm/nvm.sh && echo 'Node.js version: $(node --version)' && echo 'npm version: $(npm --version)'"
-{% endif %}
+RUN python -c "
+import sys
+import importlib
+import torch
 
-RUN python - <<'PY'
-import torch, importlib
-print("CUDA available:", torch.cuda.is_available())
-print("GPU count:", torch.cuda.device_count())
-for mod in ("flash_attn","transformers","vllm","lightllm","torchtune","unsloth"):
+print('=== System Info ===')
+print(f'Python: {sys.version}')
+print(f'PyTorch: {torch.__version__}')
+print(f'CUDA available: {torch.cuda.is_available()}')
+print(f'GPU count: {torch.cuda.device_count()}')
+
+if torch.cuda.is_available():
+    for i in range(torch.cuda.device_count()):
+        print(f'GPU {i}: {torch.cuda.get_device_name(i)}')
+        print(f'  Memory: {torch.cuda.get_device_properties(i).total_memory / 1e9:.1f} GB')
+else:
+    print('WARNING: No GPU detected!')
+
+print('\n=== Installed Packages ===')
+packages = ['transformers', 'accelerate', 'peft', 'flash_attn', 'xformers', 'vllm', 'trl']
+for pkg in packages:
     try:
-        m=importlib.import_module(mod)
-        print(mod, getattr(m,"__version__", "imported"))
+        mod = importlib.import_module(pkg.replace('-', '_'))
+        version = getattr(mod, '__version__', 'unknown')
+        print(f'{pkg}: {version}')
     except ImportError:
         pass
-PY
+"
 
-RUN python - <<'PY'
-import torch
-[print(f"GPU {i}: {torch.cuda.get_device_name(i)}") for i in range(torch.cuda.device_count())]
-PY
+# パッケージリストを記録
+RUN uv pip list > /installed-packages.txt
+
+# ヘルスチェック用スクリプト
+RUN echo '#!/bin/bash\npython -c "import torch; assert torch.cuda.is_available()"' > /healthcheck.sh && \
+    chmod +x /healthcheck.sh
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD /healthcheck.sh || exit 1

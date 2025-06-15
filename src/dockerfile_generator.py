@@ -1,147 +1,86 @@
-"""
-src/dockerfile_generator.py
-
-Jinja2 で Dockerfile を自動生成するモジュール
-"""
-
-from __future__ import annotations
-
-import datetime
+#!/usr/bin/env python3
 import os
-from typing import Any, Dict, List
-
+import datetime
+from typing import Dict, Any, List
 from jinja2 import Environment, FileSystemLoader
-
 from .presets import get_libraries_from_preset
 
+def get_gpu_arch_list(gpu_architecture: str) -> str:
+    """GPUアーキテクチャに基づいてCUDA compute capabilityリストを返す"""
+    arch_map = {
+        "hopper": "9.0",
+        "ampere": "8.0;8.6",
+        "volta": "7.0",
+        "turing": "7.5",
+        "pascal": "6.0;6.1",
+        "default": "7.0;7.5;8.0;8.6;9.0"
+    }
+    return arch_map.get(gpu_architecture, arch_map["default"])
 
-# ────────────────────────────────────────────────────────────────
-# 内部ユーティリティ
-# ────────────────────────────────────────────────────────────────
-def _cuda_suffix(cuda_version: str) -> str:
-    """
-    CUDA バージョン文字列を PyTorch wheel サフィックス（cu118 など）に変換
-    """
-    return "cu" + cuda_version.replace(".", "")
-
-
-# ----------------------------------------------------------------
-def generate_pytorch_install_command(config: Dict[str, Any]) -> str:
-    """
-    PyTorch の公式推奨インストール方法を生成
-    CUDA バージョンに応じて適切なインストールコマンドを返す
-    """
-    cuda_version = config["base"]["cuda_version"]
-    cuda_suffix = _cuda_suffix(cuda_version)
-    
-    # バージョン指定があればそれを使用、なければ空欄
-    pt_cfg = config["deep_learning"]["pytorch"]
-    version_spec = ""
-    if pt_cfg.get("version") and pt_cfg["version"] != "":
-        version_spec = f"=={pt_cfg['version']}"
-    
-    # PyTorch インストールコマンド生成
-    return (
-        f"pip install torch{version_spec} torchvision torchaudio "
-        f"--index-url https://download.pytorch.org/whl/{cuda_suffix}"
-    )
-
-# ----------------------------------------------------------------
 def prepare_libraries(config: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    プリセットまたはカスタム設定をフラットな dict リストに変換する。
-    空またはNoneバージョンを適切に処理する。
-    """
-    libs: List[Dict[str, Any]] = []
-
-    lib_cfg = config.get("libraries", {})
-    if lib_cfg.get("use_preset", False):
-        preset_name = lib_cfg.get("preset", "standard")
-        libs.extend(get_libraries_from_preset(preset_name))
+    """ライブラリプリセットまたはカスタムライブラリを準備する"""
+    if config["libraries"]["use_preset"]:
+        preset_name = config["libraries"]["preset"]
+        return get_libraries_from_preset(preset_name)
     else:
-        # カテゴリ毎 (lora, data, utils ...) をまとめてフラット化
-        custom_groups = lib_cfg.get("custom", {})
-        for _, group_libs in custom_groups.items():
-            for lib in group_libs:
-                # コピーして元の辞書を変更しないようにする
-                lib_copy = lib.copy()
-                # 空バージョンチェック
-                if "version" in lib_copy and (lib_copy["version"] is None or lib_copy["version"] == ""):
-                    del lib_copy["version"]
-                    # installキーを追加
-                    lib_copy["install"] = True
-                libs.append(lib_copy)
+        # カスタムライブラリを全てフラットなリストに結合
+        libraries = []
+        for category in config["libraries"]["custom"]:
+            libraries.extend(config["libraries"]["custom"][category])
+        return libraries
 
-    # ここで除外フィルタ
-    skip = {"bitsandbytes", "flash-attn", "flash_attn"}
-    result = [lib for lib in libs if lib["name"] not in skip]
-
-    return result
-
-# ----------------------------------------------------------------
 def prepare_environment_vars(config: Dict[str, Any]) -> List[Dict[str, str]]:
-    """
-    ENV 行に展開する name/value ペアを返す
-    """
-    env_cfg = config.get("environment", {})
-    custom = env_cfg.get("custom", [])
-    return [{"name": item["name"], "value": item["value"]} for item in custom]
+    """環境変数を準備する"""
+    env_vars = []
+    
+    # プリセット環境変数
+    if config["environment"]["preset"]["hopper"]:
+        env_vars.extend([
+            {"name": "PYTORCH_CUDA_ALLOC_CONF", "value": "max_split_size_mb:512"},
+            {"name": "NCCL_DEBUG", "value": "INFO"},
+            {"name": "NCCL_P2P_LEVEL", "value": "NVL"}
+        ])
+    
+    if config["environment"]["preset"]["multi_gpu"] and config["gpu"]["count"] > 1:
+        env_vars.extend([
+            {"name": "NCCL_IB_DISABLE", "value": "0"},
+            {"name": "NCCL_SOCKET_IFNAME", "value": "^lo,docker"},
+            {"name": "NCCL_DEBUG", "value": "INFO"}
+        ])
+    
+    # カスタム環境変数
+    if "custom" in config["environment"]:
+        env_vars.extend(config["environment"]["custom"])
+    
+    return env_vars
 
-
-# ----------------------------------------------------------------
 def get_template_path() -> str:
-    """
-    templates/Dockerfile.j2 の絶対パスを解決
-    """
-    module_dir = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(module_dir, "..", "templates", "Dockerfile.j2")
+    """テンプレートファイルのパスを取得する"""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_dir, "templates", "dockerfile.j2")
 
-
-# ────────────────────────────────────────────────────────────────
-# メイン: Dockerfile 生成
-# ────────────────────────────────────────────────────────────────
 def generate_dockerfile(config: Dict[str, Any]) -> str:
-    """
-    config から Jinja2 テンプレートをレンダリングして Dockerfile テキストを返す
-    """
-    render_cfg = dict(config)  # shallow copy
-
-    # ライブラリの空/Noneバージョンの事前処理
-    if "libraries" in render_cfg and "custom" in render_cfg["libraries"]:
-        for category, items in render_cfg["libraries"]["custom"].items():
-            for i, item in enumerate(items):
-                if "version" in item and (item["version"] is None or item["version"] == ""):
-                    render_cfg["libraries"]["custom"][category][i] = item.copy()
-                    del render_cfg["libraries"]["custom"][category][i]["version"]
-                    # installキーを追加して明示的に指定
-                    render_cfg["libraries"]["custom"][category][i]["install"] = True
+    """Dockerfileを生成する"""
+    # ライブラリとプリセットの準備
+    libraries = prepare_libraries(config)
+    env_vars = prepare_environment_vars(config)
     
-    # 追加メタ
-    render_cfg["libraries_flat"] = prepare_libraries(config)
-    render_cfg["env_vars"] = prepare_environment_vars(config)
-    render_cfg["timestamp"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    render_cfg["cuda_short"] = _cuda_suffix(config["base"]["cuda_version"])
-    render_cfg["pytorch_install_command"] = generate_pytorch_install_command(config)
-
-    # テンプレート読み込み & レンダリング
-    template_path = get_template_path()
-    env = Environment(
-        loader=FileSystemLoader(os.path.dirname(template_path)),
-        autoescape=False,
-        trim_blocks=True,
-        lstrip_blocks=True,
-        keep_trailing_newline=True,
-    )
-    template = env.get_template(os.path.basename(template_path))
+    # 追加の設定を結合
+    render_config = config.copy()
+    render_config["libraries_flat"] = libraries
+    render_config["env_vars"] = env_vars
+    render_config["timestamp"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # テンプレートのレンダリング
-    dockerfile_content = template.render(**render_cfg)
+    # バージョン短縮形の追加
+    cuda_short = config["base"]["cuda_version"].replace(".", "")
+    render_config["cuda_short"] = cuda_short
     
-    # 生成後のクリーンアップ
-    import re
-    # 連続する複数の空行を単一の空行に置き換え
-    dockerfile_content = re.sub(r'\n{3,}', '\n\n', dockerfile_content)
-    # バックスラッシュの後に適切な改行を追加
-    dockerfile_content = re.sub(r'\\([^\n])', r'\\\n\1', dockerfile_content)
-
-    return dockerfile_content
+    # GPUアーキテクチャリストの追加
+    render_config["gpu_arch_list"] = get_gpu_arch_list(config["gpu"]["architecture"])
+    
+    # テンプレートファイルからDockerfile生成
+    template_dir = os.path.dirname(get_template_path())
+    env = Environment(loader=FileSystemLoader(template_dir))
+    template = env.get_template(os.path.basename(get_template_path()))
+    
+    return template.render(**render_config)

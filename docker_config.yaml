@@ -43,7 +43,6 @@ libraries:
       - {"name": "packaging", "install": true}  # バージョン指定なし
       - {"name": "ninja", "install": true}    # バージョン指定なし
 
-    
     data:  # データ処理ライブラリ
       - {"name": "datasets", "install": true}
       - {"name": "huggingface_hub", "install": true}
