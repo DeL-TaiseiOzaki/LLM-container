@@ -1,4 +1,4 @@
-# 自動生成されたDockerfile - 2025-06-22 01:40:56
+# 自動生成されたDockerfile - 2025-06-22 03:33:35
 FROM nvcr.io/nvidia/pytorch:25.05-py3
 
 # ────────────── 基本 ENV ──────────────
@@ -13,22 +13,30 @@ ENV UV_SYSTEM_PYTHON=1
 ENV UV_CACHE_DIR=/opt/uv-cache
 ENV UV_NO_PROGRESS=1
 
+# ────────────── PEP 668制限の無効化 ──────────────
+# Docker環境ではexternally managed制限を無効化
+RUN rm -f /usr/lib/python*/EXTERNALLY-MANAGED
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+
 # ────────────── OS パッケージ ──────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates git build-essential cmake ninja-build wget \
     && rm -rf /var/lib/apt/lists/*
 
 # ────────────── uv インストール ──────────────
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    mv /root/.cargo/bin/uv /usr/local/bin/
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:${PATH}"
 
 # uvのキャッシュディレクトリを作成
 RUN mkdir -p ${UV_CACHE_DIR}
 
+# uvインストール確認
+RUN uv --version
 
-# ────────────── Node.js (uv経由でnodeenvを使用) ──────────────
-RUN uv pip install nodeenv && \
-    nodeenv -p --node=lts && \
+
+# ────────────── Node.js ──────────────
+RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && \
+    apt-get install -y nodejs && \
     npm install -g @anthropic-ai/claude-code
 
 
@@ -37,17 +45,15 @@ RUN uv pip install nodeenv && \
 # 既存のPyTorchを削除
 RUN uv pip uninstall torch torchvision torchaudio || true
 
-# PyTorchをuvでインストール
-
+# PyTorchをuvでインストール（バージョン指定なし・CUDA自動選択）
 RUN uv pip install \
-    torch==2.7.0 \
+    torch \
     torchvision \
     torchaudio \
     --index-url https://download.pytorch.org/whl/cu124
 
 
 # ────────────── bitsandbytes（ソースからビルド） ──────────────
-# bitsandbytesは特殊なビルドが必要なので従来通り
 RUN git clone --depth 1 https://github.com/bitsandbytes-foundation/bitsandbytes.git && \
     cd bitsandbytes && \
     export BNB_CUDA_VERSION=124 && \
@@ -58,9 +64,7 @@ RUN git clone --depth 1 https://github.com/bitsandbytes-foundation/bitsandbytes.
 
 
 # ────────────── xformers ──────────────
-RUN uv pip install \
-    xformers==0.0.30 \
-    --index-url https://download.pytorch.org/whl/124
+RUN uv pip install xformers
 
 
 
@@ -79,60 +83,32 @@ RUN TORCH_CUDA_ARCH_LIST="9.0" \
 
 # ────────────── ライブラリの一括インストール ──────────────
 
-# requirements.txtを直接作成（heredoc を使わずに）
 
+RUN uv pip install "transformers>=4.51.3"
 
-RUN echo "transformers>=4.51.3" >> /tmp/requirements.txt
+RUN uv pip install "accelerate>=1.7.0"
 
+RUN uv pip install "peft>=0.15.2"
 
+RUN uv pip install "datasets"
 
-RUN echo "accelerate>=1.7.0" >> /tmp/requirements.txt
+RUN uv pip install "sentencepiece"
 
+RUN uv pip install "numpy"
 
+RUN uv pip install "pandas"
 
-RUN echo "peft>=0.15.2" >> /tmp/requirements.txt
+RUN uv pip install "matplotlib"
 
+RUN uv pip install "scipy"
 
+RUN uv pip install "scikit-learn"
 
-RUN echo "datasets" >> /tmp/requirements.txt
+RUN uv pip install "jupyterlab"
 
-
-
-RUN echo "sentencepiece" >> /tmp/requirements.txt
-
-
-
-RUN echo "numpy" >> /tmp/requirements.txt
-
-
-
-RUN echo "pandas" >> /tmp/requirements.txt
-
-
-
-RUN echo "matplotlib" >> /tmp/requirements.txt
-
-
-
-RUN echo "scipy" >> /tmp/requirements.txt
-
-
-
-RUN echo "scikit-learn" >> /tmp/requirements.txt
-
-
-
-RUN echo "jupyterlab" >> /tmp/requirements.txt
-
-
-
-# uvで一括インストール（並列処理で高速化）
-RUN uv pip install -r /tmp/requirements.txt && \
-    rm /tmp/requirements.txt
 
 
 # ────────────── uvキャッシュの最適化 ──────────────
-# 不要なキャッシュを削除してイメージサイズを削減
 RUN uv cache clean
 
 # ────────────── 分散設定 ──────────────

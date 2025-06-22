@@ -1,16 +1,15 @@
-# CUDA-PyTorchの互換性マップ（2025年6月版）
-# 情報源: https://pytorch.org/get-started/previous-versions/ + 調査結果
+
 cuda:
   "12.8":
-    compatible_pytorch: ["2.7.0"]
+    compatible_pytorch: ["2.5.1"]  # 2.7.0は存在しない
     index_url: "https://download.pytorch.org/whl/cu128"
     stability: "cutting_edge"
   "12.6":
-    compatible_pytorch: ["2.7.0", "2.6.0"]
+    compatible_pytorch: ["2.5.1", "2.5.0"]  # 2.7.0削除
     index_url: "https://download.pytorch.org/whl/cu126"
     stability: "latest"
   "12.4":
-    compatible_pytorch: ["2.7.0", "2.6.0", "2.5.1", "2.5.0", "2.4.1", "2.4.0"]
+    compatible_pytorch: ["2.5.1", "2.5.0", "2.4.1", "2.4.0"]  # 正しいバージョン
     index_url: "https://download.pytorch.org/whl/cu124"
     stability: "stable"
   "12.1":
@@ -22,13 +21,13 @@ cuda:
     index_url: "https://download.pytorch.org/whl/cu118"
     stability: "maximum_compatibility"
 
-# PyTorchバージョンの推奨度
+# PyTorchバージョンの推奨度（修正版）
 pytorch_recommendations:
-  "2.7.0":
+  "2.5.1":  # 2.7.0削除
     status: "latest"
-    python_support: ["3.9", "3.10", "3.11", "3.12", "3.13"]
-    recommended_cuda: ["12.6", "12.8"]
-  "2.5.1":
+    python_support: ["3.9", "3.10", "3.11", "3.12"]
+    recommended_cuda: ["11.8", "12.1", "12.4", "12.6"]
+  "2.5.0":
     status: "stable"
     python_support: ["3.8", "3.9", "3.10", "3.11", "3.12"]
     recommended_cuda: ["11.8", "12.1", "12.4"]
@@ -36,9 +35,3 @@ pytorch_recommendations:
     status: "compatibility"
     python_support: ["3.8", "3.9", "3.10", "3.11", "3.12"]
     recommended_cuda: ["11.8", "12.1"]
-
-# 自動解決用の選択ルール
-resolution_rules:
-  prefer_stability: ["11.8", "12.1", "12.4", "12.6", "12.8"]
-  prefer_performance: ["12.8", "12.6", "12.4", "12.1", "11.8"]
-  prefer_compatibility: ["11.8", "12.1", "12.4", "12.6", "12.8"]

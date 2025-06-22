@@ -13,22 +13,30 @@ ENV UV_SYSTEM_PYTHON=1
 ENV UV_CACHE_DIR=/opt/uv-cache
 ENV UV_NO_PROGRESS=1
 
+# ────────────── PEP 668制限の無効化 ──────────────
+# Docker環境ではexternally managed制限を無効化
+RUN rm -f /usr/lib/python*/EXTERNALLY-MANAGED
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
+
 # ────────────── OS パッケージ ──────────────
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates git build-essential cmake ninja-build wget \
     && rm -rf /var/lib/apt/lists/*
 
 # ────────────── uv インストール ──────────────
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    mv /root/.cargo/bin/uv /usr/local/bin/
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:${PATH}"
 
 # uvのキャッシュディレクトリを作成
 RUN mkdir -p ${UV_CACHE_DIR}
 
+# uvインストール確認
+RUN uv --version
+
 {% if claude_code.install %}
-# ────────────── Node.js (uv経由でnodeenvを使用) ──────────────
-RUN uv pip install nodeenv && \
-    nodeenv -p --node={{ claude_code.nodejs_version|default('lts') }} && \
+# ────────────── Node.js ──────────────
+RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - && \
+    apt-get install -y nodejs && \
     npm install -g @anthropic-ai/claude-code
 {% endif %}
 
@@ -37,17 +45,15 @@ RUN uv pip install nodeenv && \
 # 既存のPyTorchを削除
 RUN uv pip uninstall torch torchvision torchaudio || true
 
-# PyTorchをuvでインストール
-{% set cuda_index = "cu" + cuda_short %}
+# PyTorchをuvでインストール（バージョン指定なし・CUDA自動選択）
 RUN uv pip install \
-    torch=={{ deep_learning.pytorch.version }} \
+    torch \
     torchvision \
     torchaudio \
-    --index-url https://download.pytorch.org/whl/{{ cuda_index }}
+    --index-url https://download.pytorch.org/whl/cu124
 {% endif %}
 
 # ────────────── bitsandbytes（ソースからビルド） ──────────────
-# bitsandbytesは特殊なビルドが必要なので従来通り
 RUN git clone --depth 1 https://github.com/bitsandbytes-foundation/bitsandbytes.git && \
     cd bitsandbytes && \
     export BNB_CUDA_VERSION={{ base.cuda_version | replace(".", "") }} && \
@@ -58,9 +64,7 @@ RUN git clone --depth 1 https://github.com/bitsandbytes-foundation/bitsandbytes.
 
 {% if deep_learning.attention.xformers %}
 # ────────────── xformers ──────────────
-RUN uv pip install \
-    xformers{% if deep_learning.attention.xformers_version %}=={{ deep_learning.attention.xformers_version }}{% endif %} \
-    --index-url https://download.pytorch.org/whl/{{ cuda_short }}
+RUN uv pip install xformers
 {% endif %}
 
 {% if deep_learning.attention.flash_attention %}
@@ -84,24 +88,18 @@ RUN uv pip install \
 
 # ────────────── ライブラリの一括インストール ──────────────
 {% if libraries_flat %}
-# requirements.txtを直接作成（heredoc を使わずに）
 {% for lib in libraries_flat %}
-{% if lib.source is defined %}
-RUN echo "{{ lib.source }}" >> /tmp/requirements.txt
-{% elif lib.version is defined %}
-RUN echo "{{ lib.name }}{{ lib.version }}{% if lib.extra is defined %}[{{ lib.extra }}]{% endif %}" >> /tmp/requirements.txt
-{% elif lib.install is defined and lib.install %}
-RUN echo "{{ lib.name }}{% if lib.extra is defined %}[{{ lib.extra }}]{% endif %}" >> /tmp/requirements.txt
-{% endif %}
+{%- if lib.source is defined %}
+RUN uv pip install "{{ lib.source }}"
+{%- elif lib.version is defined %}
+RUN uv pip install "{{ lib.name }}{{ lib.version }}{% if lib.extra is defined %}[{{ lib.extra }}]{% endif %}"
+{%- elif lib.install is defined and lib.install %}
+RUN uv pip install "{{ lib.name }}{% if lib.extra is defined %}[{{ lib.extra }}]{% endif %}"
+{%- endif %}
 {% endfor %}
-
-# uvで一括インストール（並列処理で高速化）
-RUN uv pip install -r /tmp/requirements.txt && \
-    rm /tmp/requirements.txt
 {% endif %}
 
 # ────────────── uvキャッシュの最適化 ──────────────
-# 不要なキャッシュを削除してイメージサイズを削減
 RUN uv cache clean
 
 # ────────────── 分散設定 ──────────────
