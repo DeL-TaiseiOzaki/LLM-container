@@ -2,12 +2,12 @@
 base:
   image: "nvcr.io/nvidia/pytorch"
   tag: "24.05-py3"  # 最新のNVIDIA PyTorchコンテナを使用
-  cuda_version: "12.8"  # 環境に合わせたCUDAバージョン
+  cuda_version: "12.4"  # 環境に合わせたCUDAバージョン
   python_version: "3.10"  # 安定したPythonバージョン
 
 gpu:
   architecture: "hopper"  # H100はHopperアーキテクチャ
-  count: 4  # 4基のGPUを全て使用
+  count: 8  # 4基のGPUを全て使用
   multi_node: false  # 単一ノード内のマルチGPU
   optimization: true  # GPUパフォーマンス最適化を有効化
 
