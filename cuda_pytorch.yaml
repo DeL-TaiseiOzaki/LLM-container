@@ -1,0 +1,12 @@
+# CUDA-PyTorch対応表（最小限）
+11.8:
+  pytorch_version: "2.4.0"
+  index_url: "https://download.pytorch.org/whl/cu118"
+
+12.1:
+  pytorch_version: "2.4.0"
+  index_url: "https://download.pytorch.org/whl/cu121"
+
+12.4:
+  pytorch_version: "2.6.0"
+  index_url: "https://download.pytorch.org/whl/cu124"

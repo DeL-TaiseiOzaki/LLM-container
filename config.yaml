@@ -1,0 +1,28 @@
+# 基本設定
+cuda_version: "12.8"        # 11.8, 12.1, 12.4, 12.6, 12.8から選択
+python_version: "3.11"      # 3.9, 3.10, 3.11, 3.12から選択
+
+# PyTorchバージョン（オプション - 指定しない場合は推奨版を自動選択）
+pytorch_version: "2.7.0"
+
+# Transformersバージョン（必須）
+transformers_version: "4.56.0"  # お好みのバージョンを指定
+
+# オプションパッケージ（true/falseで選択）
+packages:
+  vllm: true               # 高速推論エンジン
+  trl: true                 # Transformer Reinforcement Learning
+  unsloth: true            # 高速ファインチューニング
+  deepspeed: false          # 分散学習
+  flash_attention2: true    # Flash Attention 2
+  openai: true              # OpenAI API クライアント
+  litellm: true             # 統一LLM APIインターフェース
+  langchain: false           # LLMアプリケーション開発
+
+# 開発ツール
+claude_code: true           # Claude Code AI開発支援
+jupyter: false            # Jupyter Lab
+
+# コンテナ設定
+container_name: "llm-dev-ozaki"
+mount_path: "/workspace"

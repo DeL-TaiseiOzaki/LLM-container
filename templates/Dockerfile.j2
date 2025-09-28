@@ -1,7 +1,7 @@
 # Simple LLM Docker Environment
-# Generated: 2025-09-28 16:20:44
+# Generated: {{ timestamp }}
 
-FROM nvidia/cuda:12.8.0-cudnn8-devel-ubuntu22.04
+FROM nvidia/cuda:12.8.0-cudnn-devel-ubuntu22.04
 
 # 基本設定
 ENV DEBIAN_FRONTEND=noninteractive
@@ -10,21 +10,21 @@ ENV CUDA_HOME=/usr/local/cuda
 ENV PATH=${CUDA_HOME}/bin:${PATH}
 ENV LD_LIBRARY_PATH=${CUDA_HOME}/lib64:${LD_LIBRARY_PATH}
 
-# Python 3.11 インストール
+# Python {{ python_version }} インストール
 RUN apt-get update && apt-get install -y \
     software-properties-common \
     && add-apt-repository ppa:deadsnakes/ppa \
     && apt-get update && apt-get install -y \
-    python3.11 \
-    python3.11-dev \
-    python3.11-venv \
+    python{{ python_version }} \
+    python{{ python_version }}-dev \
+    python{{ python_version }}-venv \
     python3-pip \
     curl wget git build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Python 3.11 をデフォルトに
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 \
-    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
+# Python {{ python_version }} をデフォルトに
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python{{ python_version }} 1 \
+    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python{{ python_version }} 1
 
 # uv インストール（高速パッケージマネージャー）
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -34,51 +34,58 @@ ENV UV_SYSTEM_PYTHON=1
 # uvの確認
 RUN uv --version
 
-
+{% if claude_code %}
 # Claude Code インストール
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
     && apt-get install -y nodejs \
     && npm install -g @anthropic-ai/claude-code
-
+{% endif %}
 
 # PyTorch インストール
-RUN uv pip install torch==2.7.0 torchvision torchaudio \
-    --index-url https://download.pytorch.org/whl/cu128
+RUN uv pip install torch=={{ pytorch_version }} torchvision torchaudio \
+    --index-url {{ pytorch_index_url }}
 
 # Transformers インストール（必須）
-RUN uv pip install transformers==4.56.0
+RUN uv pip install transformers=={{ transformers_version }}
 
 # オプションパッケージ
-
+{% if packages.vllm %}
 RUN uv pip install vllm
+{% endif %}
 
-
-
+{% if packages.trl %}
 RUN uv pip install trl
+{% endif %}
 
-
-
+{% if packages.unsloth %}
 RUN uv pip install "unsloth[colab-new] @ git+https://github.com/unslothai/unsloth.git"
+{% endif %}
 
+{% if packages.deepspeed %}
+RUN uv pip install deepspeed
+{% endif %}
 
-
-
-
+{% if packages.flash_attention2 %}
 RUN uv pip install ninja packaging wheel
 RUN MAX_JOBS=4 uv pip install flash-attn --no-build-isolation
+{% endif %}
 
-
-
+{% if packages.openai %}
 RUN uv pip install openai
+{% endif %}
 
-
-
+{% if packages.litellm %}
 RUN uv pip install litellm
+{% endif %}
 
+{% if packages.langchain %}
+RUN uv pip install langchain langchain-community
+{% endif %}
 
-
-
-
+{% if jupyter %}
+# Jupyter Lab
+RUN uv pip install jupyterlab ipywidgets
+{% endif %}
 
 # 基本的なMLツール
 RUN uv pip install \
@@ -91,7 +98,7 @@ RUN uv pip install \
     huggingface-hub
 
 # 作業ディレクトリ
-WORKDIR /workspace
+WORKDIR {{ mount_path }}
 
 # ヘルスチェック
 RUN echo '#!/bin/bash\npython -c "import torch; print(f\"PyTorch {torch.__version__}\"); print(f\"CUDA available: {torch.cuda.is_available()}\")"' > /healthcheck.sh \
@@ -103,15 +110,15 @@ echo "========================================"\n\
 echo "🚀 Simple LLM Docker Environment"\n\
 echo "========================================"\n\
 echo "📦 Versions:"\n\
-echo "  CUDA: 12.8"\n\
-echo "  Python: 3.11"\n\
-echo "  PyTorch: 2.7.0"\n\
-echo "  Transformers: 4.56.0"\n\
+echo "  CUDA: {{ cuda_version }}"\n\
+echo "  Python: {{ python_version }}"\n\
+echo "  PyTorch: {{ pytorch_version }}"\n\
+echo "  Transformers: {{ transformers_version }}"\n\
 echo "========================================"\n\
 python /healthcheck.sh\n\
 echo "========================================"\n\
-\
-echo "💡 Claude Code: claude"\n\
+{% if jupyter %}echo "💡 Jupyter Lab: jupyter lab --ip 0.0.0.0 --allow-root"\n{% endif %}\
+{% if claude_code %}echo "💡 Claude Code: claude"\n{% endif %}\
 exec "$@"' > /entrypoint.sh \
     && chmod +x /entrypoint.sh
 

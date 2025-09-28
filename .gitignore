@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+Dockerfile
+*.log
+.DS_Store
+.vscode/
+.idea/
