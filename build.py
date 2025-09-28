@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-"""
-Simple LLM Docker Builder
-シンプルで実用的なLLM開発環境構築ツール
-"""
-
 import os
 import sys
 import yaml
@@ -12,11 +6,11 @@ import subprocess
 from datetime import datetime
 from jinja2 import Template
 
-# CUDA-PyTorch対応表（PyTorch公式サイトより 2025.1月更新）
+# CUDA-PyTorch対応表（2025年1月最新）
 CUDA_PYTORCH = {
     "11.8": {
         "pytorch_versions": ["2.7.0", "2.6.0", "2.5.1", "2.4.1", "2.3.1"],
-        "default": "2.5.1",  # 安定版を推奨
+        "default": "2.5.1",  # 安定版
         "index_url": "https://download.pytorch.org/whl/cu118"
     },
     "12.1": {
@@ -31,15 +25,85 @@ CUDA_PYTORCH = {
     },
     "12.6": {
         "pytorch_versions": ["2.7.0", "2.6.0"],
-        "default": "2.7.0",  # 最新版
+        "default": "2.7.0",
         "index_url": "https://download.pytorch.org/whl/cu126"
     },
     "12.8": {
         "pytorch_versions": ["2.7.0"],
-        "default": "2.7.0",  # H100用最新
+        "default": "2.7.0",
         "index_url": "https://download.pytorch.org/whl/cu128"
     }
 }
+
+# パッケージ説明
+PACKAGE_INFO = {
+    "vllm": "高速推論エンジン（PagedAttention）",
+    "trl": "強化学習（RLHF/DPO）",
+    "unsloth": "高速ファインチューニング（2x高速）",
+    "deepspeed": "分散学習フレームワーク",
+    "flash_attention2": "Flash Attention 2（メモリ効率）",
+    "openai": "OpenAI API クライアント",
+    "litellm": "統一LLM APIインターフェース",
+    "langchain": "LLMアプリ開発フレームワーク",
+    "wandb": "実験管理・モデル追跡",
+    "mlflow": "MLOpsプラットフォーム"
+}
+
+def get_nvidia_cuda_version():
+    """ホストマシンのCUDAバージョンを取得"""
+    try:
+        result = subprocess.run(['nvidia-smi'], capture_output=True, text=True)
+        if result.returncode == 0:
+            for line in result.stdout.split('\n'):
+                if 'CUDA Version:' in line:
+                    version = line.split('CUDA Version:')[1].strip().split()[0]
+                    major_minor = '.'.join(version.split('.')[:2])
+                    return major_minor
+    except:
+        pass
+    return None
+
+def init_config():
+    """初期設定ファイルを生成"""
+    host_cuda = get_nvidia_cuda_version()
+    
+    if host_cuda:
+        print(f"✅ ホストのCUDAバージョンを検出: {host_cuda}")
+        cuda_version = host_cuda
+    else:
+        print("⚠️  CUDAバージョンを自動検出できませんでした")
+        cuda_version = "12.1"  # デフォルト
+    
+    config = {
+        'cuda_version': cuda_version,
+        'python_version': '3.11',
+        'transformers_version': '4.56.0',
+        'packages': {
+            'vllm': True,
+            'trl': False,
+            'unsloth': False,
+            'deepspeed': False,
+            'flash_attention2': True,
+            'openai': True,
+            'litellm': False,
+            'langchain': False,
+            'wandb': False,
+            'mlflow': False
+        },
+        'claude_code': True,
+        'jupyter': True,
+        'container_name': 'llm-dev',
+        'mount_path': '/workspace'
+    }
+    
+    with open('config.yaml', 'w') as f:
+        yaml.dump(config, f, default_flow_style=False, allow_unicode=True)
+    
+    print("✅ config.yaml を生成しました")
+    print("\n📝 次のステップ:")
+    print("  1. config.yaml を編集して必要なパッケージを選択")
+    print("  2. make build でイメージをビルド")
+    print("  3. make run でコンテナを起動")
 
 def load_config(config_path):
     """設定ファイルを読み込む"""
@@ -81,13 +145,11 @@ def generate_dockerfile(config):
     
     # PyTorchバージョンとURLを取得
     cuda_info = CUDA_PYTORCH[config['cuda_version']]
-    
-    # ユーザー指定のPyTorchバージョンを優先、なければデフォルトを使用
     pytorch_version = config.get('pytorch_version', cuda_info['default'])
     
     # 互換性確認
     if pytorch_version not in cuda_info['pytorch_versions']:
-        print(f"⚠️ 警告: PyTorch {pytorch_version} は CUDA {config['cuda_version']} で未検証です")
+        print(f"⚠️  警告: PyTorch {pytorch_version} は CUDA {config['cuda_version']} で未検証です")
         pytorch_version = cuda_info['default']
         print(f"  → PyTorch {pytorch_version} を使用します")
     
@@ -118,59 +180,77 @@ def generate_dockerfile(config):
     with open('Dockerfile', 'w') as f:
         f.write(dockerfile_content)
     
-    print(f"✅ Dockerfile生成完了 (PyTorch {pytorch_version} with CUDA {config['cuda_version']})")
+    print(f"✅ Dockerfile生成完了")
     return dockerfile_content
 
-def build_image(config):
+def build_image(config, name=None):
     """Dockerイメージをビルド"""
-    image_name = f"llm-env:{config['cuda_version']}"
+    image_name = name or f"llm-env:{config['cuda_version']}"
     
     print(f"🔨 イメージをビルド中: {image_name}")
+    print("  （初回は10-20分かかる場合があります）")
     
     cmd = ["docker", "build", "-t", image_name, "."]
     result = subprocess.run(cmd)
     
     if result.returncode == 0:
         print(f"✅ ビルド成功: {image_name}")
+        
+        # イメージサイズを表示
+        size_cmd = ["docker", "images", image_name, "--format", "{{.Size}}"]
+        size_result = subprocess.run(size_cmd, capture_output=True, text=True)
+        if size_result.returncode == 0:
+            print(f"📦 イメージサイズ: {size_result.stdout.strip()}")
+        
         return image_name
     else:
         print("❌ ビルドに失敗しました")
         sys.exit(1)
 
-def run_container(config, image_name):
-    """コンテナを起動"""
-    container_name = config.get('container_name', 'llm-dev')
-    mount_path = config.get('mount_path', '/workspace')
-    
-    # 既存のコンテナを停止
-    subprocess.run(["docker", "stop", container_name], capture_output=True)
-    subprocess.run(["docker", "rm", container_name], capture_output=True)
-    
-    # コンテナ起動コマンド
-    cmd = [
-        "docker", "run",
-        "--gpus", "all",
-        "--name", container_name,
-        "-v", f"{os.path.expanduser('~')}:{mount_path}",
-        "--shm-size", "8g",
-        "-it",
-        "-d",
-        image_name,
-        "/bin/bash"
-    ]
-    
-    print(f"🚀 コンテナを起動中: {container_name}")
-    result = subprocess.run(cmd)
-    
-    if result.returncode == 0:
-        print(f"✅ コンテナ起動成功: {container_name}")
-        print(f"\n📝 接続方法:")
-        print(f"  docker exec -it {container_name} bash")
-        if config.get('jupyter'):
-            print(f"\n🌐 Jupyter Lab起動:")
-            print(f"  docker exec -it {container_name} jupyter lab --ip 0.0.0.0 --allow-root")
+def run_container(image=None, name=None):
+    """Docker Composeでコンテナを起動"""
+    if os.path.exists('docker-compose.yaml'):
+        print("🚀 Docker Composeでコンテナを起動中...")
+        cmd = ["docker-compose", "up", "-d"]
+        result = subprocess.run(cmd)
+        
+        if result.returncode == 0:
+            print("✅ コンテナ起動成功")
+            print("\n📝 接続方法:")
+            print("  docker exec -it llm-dev bash")
+            print("\n🌐 サービス:")
+            print("  Jupyter Lab: http://localhost:8888")
+            print("  TensorBoard: http://localhost:6006")
+        else:
+            print("❌ コンテナ起動に失敗しました")
     else:
-        print("❌ コンテナ起動に失敗しました")
+        print("⚠️  docker-compose.yml が見つかりません")
+        print("  通常のdocker runで起動します...")
+        
+        config = load_config('config.yaml')
+        container_name = name or config.get('container_name', 'llm-dev')
+        image_name = image or f"llm-env:{config['cuda_version']}"
+        
+        # 既存のコンテナを停止
+        subprocess.run(["docker", "stop", container_name], capture_output=True)
+        subprocess.run(["docker", "rm", container_name], capture_output=True)
+        
+        cmd = [
+            "docker", "run",
+            "--gpus", "all",
+            "--name", container_name,
+            "-v", f"{os.getcwd()}:/workspace",
+            "--shm-size", "16g",
+            "-p", "8888:8888",
+            "-p", "6006:6006",
+            "-it",
+            "-d",
+            image_name
+        ]
+        
+        result = subprocess.run(cmd)
+        if result.returncode == 0:
+            print(f"✅ コンテナ起動成功: {container_name}")
 
 def list_packages(config):
     """選択されたパッケージを表示"""
@@ -178,27 +258,30 @@ def list_packages(config):
     pytorch_version = config.get('pytorch_version', cuda_info['default'])
     
     print("\n📦 インストールされるパッケージ:")
-    print("  [必須]")
-    print(f"    - PyTorch {pytorch_version} (CUDA {config['cuda_version']})")
-    print(f"    - Transformers {config['transformers_version']}")
+    print("\n  [基本]")
+    print(f"    ✅ PyTorch {pytorch_version} (CUDA {config['cuda_version']})")
+    print(f"    ✅ Transformers {config['transformers_version']}")
+    print("    ✅ NumPy, Pandas, Matplotlib")
+    print("    ✅ Accelerate, Datasets, Hugging Face Hub")
     
-    print("  [オプション]")
+    print("\n  [選択されたオプション]")
     for pkg, enabled in config['packages'].items():
         if enabled:
-            print(f"    - {pkg}")
+            info = PACKAGE_INFO.get(pkg, "")
+            print(f"    ✅ {pkg}: {info}")
     
     if config.get('claude_code'):
-        print("    - Claude Code")
+        print("    ✅ Claude Code (Node.js 20 LTS)")
     
     if config.get('jupyter'):
-        print("    - Jupyter Lab")
+        print("    ✅ Jupyter Lab")
     
-    print(f"\n💡 CUDA {config['cuda_version']} で利用可能なPyTorch:")
-    for ver in cuda_info['pytorch_versions']:
-        if ver == pytorch_version:
-            print(f"    - {ver} ← 選択中")
-        else:
-            print(f"    - {ver}")
+    # 未選択のパッケージも表示
+    print("\n  [未選択のオプション]")
+    for pkg, enabled in config['packages'].items():
+        if not enabled:
+            info = PACKAGE_INFO.get(pkg, "")
+            print(f"    ⬜ {pkg}: {info}")
 
 def main():
     parser = argparse.ArgumentParser(
@@ -207,44 +290,54 @@ def main():
     
     parser.add_argument(
         'command',
-        choices=['build', 'run', 'all', 'list'],
+        choices=['init', 'validate', 'generate', 'build', 'run', 'all', 'list'],
         help='実行するコマンド'
     )
     
-    parser.add_argument(
-        '--config',
-        default='config.yaml',
-        help='設定ファイルのパス (default: config.yaml)'
-    )
+    parser.add_argument('--config', default='config.yaml', help='設定ファイル')
+    parser.add_argument('--image', help='イメージ名')
+    parser.add_argument('--name', help='コンテナ名')
     
     args = parser.parse_args()
+    
+    # initコマンド
+    if args.command == 'init':
+        init_config()
+        return
     
     # 設定を読み込む
     if not os.path.exists(args.config):
         print(f"❌ 設定ファイルが見つかりません: {args.config}")
+        print("💡 まず 'python build.py init' を実行してください")
         sys.exit(1)
     
     config = load_config(args.config)
     
-    # 設定を検証
-    validate_config(config)
+    if args.command == 'validate':
+        validate_config(config)
+        print("✅ 設定ファイルは有効です")
     
-    if args.command == 'list':
-        list_packages(config)
+    elif args.command == 'generate':
+        validate_config(config)
+        generate_dockerfile(config)
     
     elif args.command == 'build':
+        validate_config(config)
         generate_dockerfile(config)
-        image_name = build_image(config)
+        build_image(config, args.image)
     
     elif args.command == 'run':
-        image_name = f"llm-env:{config['cuda_version']}"
-        run_container(config, image_name)
+        run_container(args.image, args.name)
+    
+    elif args.command == 'list':
+        list_packages(config)
     
     elif args.command == 'all':
+        validate_config(config)
         list_packages(config)
         generate_dockerfile(config)
-        image_name = build_image(config)
-        run_container(config, image_name)
+        image_name = build_image(config, args.image)
+        run_container(image_name, args.name)
     
     print("\n✨ 完了!")
 

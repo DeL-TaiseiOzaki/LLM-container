@@ -19,6 +19,19 @@ packages:
   litellm: true             # 統一LLM APIインターフェース
   langchain: false           # LLMアプリケーション開発
 
+# LLMOps & 実験管理
+  wandb: true              # Weights & Biases - 実験トラッキング
+  mlflow: false             # MLflow - モデル管理
+  tensorboard: false         # TensorBoard - 学習可視化
+  
+  # 追加の推論最適化
+  bitsandbytes: true       # 量子化による高速化
+  peft: true               # Parameter-Efficient Fine-Tuning
+  
+  # データ処理
+  sentencepiece: true       # トークナイザー
+  tokenizers: true          # 高速トークナイザー
+
 # 開発ツール
 claude_code: true           # Claude Code AI開発支援
 jupyter: false            # Jupyter Lab
