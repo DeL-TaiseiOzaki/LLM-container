@@ -1,33 +1,67 @@
-## 🔧 カスタマイズ
+# 🚀 Simple LLM Docker
 
-### ベースイメージの変更
+## クイックスタート
 
-`templates/Dockerfile.j2` の最初の行を編集することで、ベースイメージを自由に変更できます。
+```bash
+# 1. ビルド（初回のみ、10-20分）
+make build
 
-**現在のデフォルト：**
-```dockerfile
-FROM nvidia/cuda:12.8.0-cudnn-devel-ubuntu22.04
+# 2. 起動
+make run
+
+# 3. 接続
+make exec
 ```
 
-**変更例：**
+## 含まれるもの
 
-```dockerfile
-# 例1: 異なるCUDAバージョンを使用（CUDA 11.8）
-FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
+- **基本**: PyTorch, Transformers, NumPy, Pandas
+- **推論**: vLLM, Flash Attention 2
+- **学習**: TRL, Unsloth, PEFT
+- **API**: OpenAI, LiteLLM
+- **その他**: Weights & Biases, Claude Code
 
-# 例2: PyTorch公式イメージを使用
-FROM pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime
+## マルチユーザー利用
 
-# 例3: 軽量版（runtime版）を使用
-FROM nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04
-
-# 例4: CPU専用（GPU不要の場合）
-FROM ubuntu:22.04
+```bash
+# ozakiさん用
+make run USER=ozaki BASE_DIR=/home/ozaki
 ```
 
-**注意事項**：
-- ベースイメージのCUDAバージョンと `config.yaml` の `cuda_version` を**必ず一致**させてください
-  - 例：ベースイメージが `cuda:11.8.0` なら `cuda_version: "11.8"`
-- Ubuntu 22.04ベースを推奨（依存関係の互換性のため）
-- 変更後は `make build` で再ビルドが必要です
-- runtime版を使う場合、一部のパッケージ（Flash Attention等）のビルドができない場合があります
+## カスタマイズ
+
+`config.yaml`を編集して必要なパッケージをON/OFF：
+
+```yaml
+packages:
+  vllm: true          # 高速推論
+  unsloth: false      # ← falseにすれば無効化
+  wandb: true         # 実験管理
+```
+
+`templates/Dockerfile.j2`の1行目でベースイメージ変更可能：
+```dockerfile
+FROM nvidia/cuda:12.8.0-cudnn-devel-ubuntu22.04  # ← お好きなイメージに
+```
+
+## トラブルシューティング
+
+### Docker権限エラー
+```bash
+# 解決法1: run.shを使う（自動sudo）
+./run.sh ユーザー名
+
+# 解決法2: dockerグループに追加
+sudo usermod -aG docker $USER
+# ログアウト→再ログイン
+```
+
+### CUDAバージョンが合わない
+`config.yaml`を編集：
+```yaml
+cuda_version: "12.8"  # あなたのGPUに合わせて変更
+```
+
+## ライセンス
+
+Apache License 2.0
