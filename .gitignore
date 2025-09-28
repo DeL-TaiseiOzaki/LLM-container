@@ -1,7 +1,18 @@
+# Python
 __pycache__/
 *.pyc
+
+# 生成ファイル
 Dockerfile
+
+# ユーザーデータ
+workspace/
+.env
+
+# ログ
 *.log
+
+# IDE
 .DS_Store
 .vscode/
 .idea/

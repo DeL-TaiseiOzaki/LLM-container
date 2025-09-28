@@ -1,38 +1,29 @@
-.PHONY: help build run exec stop logs status clean
+.PHONY: help build run exec stop logs clean
 
-# デフォルト
-IMAGE ?= llm-env:latest
 USER ?= $(shell whoami)
-GPU ?= all
-PORT ?= 0
+BASE_DIR ?= $(shell pwd)  # デフォルトは現在のディレクトリ
 
 help:
-	@echo "🚀 Simple LLM Docker (Multi-User)"
+	@echo "🚀 Simple LLM Docker"
 	@echo ""
-	@echo "使い方:"
-	@echo "  make build              # イメージビルド（初回のみ）"
-	@echo "  make run USER=名前      # コンテナ起動"
-	@echo "  make exec USER=名前     # コンテナ接続"  
-	@echo "  make stop USER=名前     # コンテナ停止"
-	@echo "  make status             # 全コンテナ状態"
-	@echo "  make logs USER=名前     # ログ表示"
+	@echo "基本コマンド:"
+	@echo "  make build         # イメージビルド"
+	@echo "  make run           # コンテナ起動（現在のディレクトリ使用）"
+	@echo "  make exec          # コンテナ接続"
+	@echo "  make stop          # コンテナ停止"
+	@echo "  make logs          # ログ表示"
+	@echo "  make clean         # コンテナ削除"
 	@echo ""
-	@echo "オプション:"
-	@echo "  GPU=0                   # GPU指定（デフォルト: all）"
-	@echo "  PORT=10                 # ポートオフセット（デフォルト: 0）"
-	@echo ""
-	@echo "例:"
-	@echo "  make run USER=ozaki GPU=0 PORT=0    # ozaki: GPU0, port 8888"
-	@echo "  make run USER=esashi GPU=1 PORT=10  # esashi: GPU1, port 8898"
+	@echo "カスタム起動:"
+	@echo "  make run USER=ozaki                  # ozaki用（現在のディレクトリ）"
+	@echo "  make run BASE_DIR=/home/ozaki        # ozaki用（特定パス）"
+	@echo "  make run USER=esashi BASE_DIR=/data  # esashi用（/data配下）"
 
 build:
-	@echo "🔨 ビルド中..."
-	@python build.py init
-	@python build.py build --image $(IMAGE)
+	@python build.py build
 
 run:
-	@chmod +x run.sh
-	@./run.sh $(USER) $(GPU) $(PORT)
+	@bash run.sh $(USER) $(BASE_DIR)
 
 exec:
 	@docker exec -it llm-$(USER) bash
@@ -43,12 +34,5 @@ stop:
 logs:
 	@docker logs -f llm-$(USER)
 
-status:
-	@echo "📊 LLMコンテナ状態:"
-	@docker ps -a --filter "name=llm-" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-
 clean:
-	@docker rm llm-$(USER)
-
-clean-all:
-	@docker rm $$(docker ps -aq --filter "name=llm-") 2>/dev/null || true
+	@docker rm -f llm-$(USER) 2>/dev/null || true

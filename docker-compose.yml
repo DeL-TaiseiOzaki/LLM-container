@@ -4,10 +4,9 @@ services:
   llm-dev:
     build: .
     image: llm-env:latest
-    container_name: llm-dev-ozaki
-    hostname: llm-dev
+    container_name: llm-${USER:-dev}
     
-    # GPUサポート
+    # GPU全部使う
     deploy:
       resources:
         reservations:
@@ -16,31 +15,24 @@ services:
               count: all
               capabilities: [gpu]
     
-    # ボリューム
+    # ボリューム（リポジトリ配下のユーザー別ディレクトリ）
     volumes:
-      - ./workspace:/workspace
+      - ./users/${USER}/workspace:/workspace
+      - ./users/${USER}/models:/models
+      - ./users/${USER}/datasets:/datasets
+      - ./users/${USER}/logs:/logs
       - ~/.cache/huggingface:/root/.cache/huggingface
-      - ~/.cache/pip:/root/.cache/pip
     
-    # 環境変数
+    # 全ポート利用可能（ホストネットワークモード）
+    network_mode: host
+    
+    # 環境変数（必要最小限）
     environment:
-      - TRANSFORMERS_CACHE=/root/.cache/huggingface
       - HF_HOME=/root/.cache/huggingface
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - WANDB_API_KEY=${WANDB_API_KEY:-}
-      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN:-}
+      - HF_TOKEN=${HF_TOKEN:-}
     
-    # ポート
-    ports:
-      - "8888:8888"  # Jupyter Lab
-      - "6006:6006"  # TensorBoard
-      - "5000:5000"  # MLflow
-      - "8000:8000"  # vLLM/FastAPI
-    
-    # 対話モード
     stdin_open: true
     tty: true
-    
-    # 再起動ポリシー
     restart: unless-stopped

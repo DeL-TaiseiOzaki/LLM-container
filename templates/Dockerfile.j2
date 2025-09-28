@@ -1,3 +1,7 @@
+# ベースイメージ（ユーザーが用途に応じて選択・変更してください）
+# 例: nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
+# 例: pytorch/pytorch:2.5.1-cuda12.1-cudnn9-runtime  
+# 例: ubuntu:22.04 (CPU専用)
 FROM nvidia/cuda:12.8.0-cudnn-devel-ubuntu22.04
 
 # 基本設定
@@ -46,7 +50,7 @@ RUN uv pip install torch=={{ pytorch_version }} torchvision torchaudio \
 # Transformers（必須）
 RUN uv pip install transformers=={{ transformers_version }}
 
-# 基本MLライブラリ
+# 基本MLライブラリ（tokenizerとsentencepieceを基本に含める）
 RUN uv pip install \
     numpy pandas matplotlib seaborn \
     scikit-learn scipy \
@@ -61,8 +65,16 @@ RUN uv pip install \
 RUN uv pip install vllm
 {% endif %}
 
+{% if packages.bitsandbytes %}
+RUN uv pip install bitsandbytes
+{% endif %}
+
+{% if packages.peft %}
+RUN uv pip install peft
+{% endif %}
+
 {% if packages.trl %}
-RUN uv pip install trl peft
+RUN uv pip install trl{% if not packages.peft %} peft{% endif %}
 {% endif %}
 
 {% if packages.unsloth %}
@@ -96,6 +108,10 @@ RUN uv pip install wandb
 
 {% if packages.mlflow %}
 RUN uv pip install mlflow
+{% endif %}
+
+{% if packages.tensorboard %}
+RUN uv pip install tensorboard
 {% endif %}
 
 {% if jupyter %}
@@ -138,6 +154,10 @@ python /healthcheck.py
 {% if jupyter %}
 echo "💡 Jupyter Lab: http://localhost:8888"
 echo "   起動: jupyter lab --ip 0.0.0.0 --allow-root --no-browser"
+{% endif %}
+{% if packages.tensorboard %}
+echo "💡 TensorBoard: http://localhost:6006"
+echo "   起動: tensorboard --logdir /workspace/logs --host 0.0.0.0"
 {% endif %}
 {% if claude_code %}
 echo "💡 Claude Code: claude"
