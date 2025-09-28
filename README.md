@@ -65,3 +65,15 @@ cuda_version: "12.8"  # あなたのGPUに合わせて変更
 ## ライセンス
 
 Apache License 2.0
+
+## 🔄 **ホスト側との対応**
+
+例：`make run USER=ozaki BASE_DIR=/home/ozaki` で起動した場合
+
+| ホスト側 | → | コンテナ内 |
+|---------|---|-----------|
+| `/home/ozaki/workspace` | → | `/workspace` |
+| `/home/ozaki/models` | → | `/models` |
+| `/home/ozaki/datasets` | → | `/datasets` |
+| `/home/ozaki/logs` | → | `/logs` |
+| `/home/ozaki/.cache/huggingface` | → | `/root/.cache/huggingface` |
