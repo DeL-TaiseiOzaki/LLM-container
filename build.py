@@ -49,6 +49,26 @@ PACKAGE_INFO = {
     "mlflow": "MLOpsプラットフォーム"
 }
 
+def check_docker_compose():
+    """docker composeコマンドの利用可能性をチェック"""
+    # docker compose (新形式) を試す
+    try:
+        result = subprocess.run(["docker", "compose", "version"], capture_output=True, text=True)
+        if result.returncode == 0:
+            return ["docker", "compose"]
+    except:
+        pass
+    
+    # docker-compose (旧形式) を試す
+    try:
+        result = subprocess.run(["docker-compose", "version"], capture_output=True, text=True)
+        if result.returncode == 0:
+            return ["docker-compose"]
+    except:
+        pass
+    
+    return None
+
 def get_nvidia_cuda_version():
     """ホストマシンのCUDAバージョンを取得"""
     try:
@@ -208,49 +228,94 @@ def build_image(config, name=None):
         sys.exit(1)
 
 def run_container(image=None, name=None):
-    """Docker Composeでコンテナを起動"""
-    if os.path.exists('docker-compose.yaml'):
-        print("🚀 Docker Composeでコンテナを起動中...")
-        cmd = ["docker-compose", "up", "-d"]
-        result = subprocess.run(cmd)
+    """コンテナを起動"""
+    config = load_config('config.yaml')
+    container_name = name or config.get('container_name', 'llm-dev')
+    image_name = image or f"llm-env:{config['cuda_version']}"
+    
+    # Docker Composeが利用可能かチェック
+    if os.path.exists('docker-compose.yml'):
+        compose_cmd = check_docker_compose()
         
-        if result.returncode == 0:
-            print("✅ コンテナ起動成功")
-            print("\n📝 接続方法:")
-            print("  docker exec -it llm-dev bash")
-            print("\n🌐 サービス:")
-            print("  Jupyter Lab: http://localhost:8888")
-            print("  TensorBoard: http://localhost:6006")
+        if compose_cmd:
+            print(f"🚀 Docker Composeでコンテナを起動中...")
+            
+            # カスタムコンテナ名が指定された場合は環境変数で渡す
+            env = os.environ.copy()
+            env['CONTAINER_NAME'] = container_name
+            env['IMAGE_NAME'] = image_name
+            
+            cmd = compose_cmd + ["up", "-d"]
+            
+            # docker-compose.ymlを一時的に修正する必要がある場合
+            if container_name != 'llm-dev':
+                print(f"📝 カスタムコンテナ名: {container_name}")
+                # 通常のdocker runを使用
+                run_with_docker(config, container_name, image_name)
+            else:
+                result = subprocess.run(cmd, env=env)
+                if result.returncode == 0:
+                    print("✅ コンテナ起動成功")
+                    print_connection_info(container_name, config)
+                else:
+                    print("❌ Docker Compose起動に失敗しました")
+                    print("💡 通常のDocker起動を試します...")
+                    run_with_docker(config, container_name, image_name)
         else:
-            print("❌ コンテナ起動に失敗しました")
+            print("⚠️  Docker Composeがインストールされていません")
+            print("💡 通常のDocker起動を使用します...")
+            run_with_docker(config, container_name, image_name)
     else:
-        print("⚠️  docker-compose.yml が見つかりません")
-        print("  通常のdocker runで起動します...")
-        
-        config = load_config('config.yaml')
-        container_name = name or config.get('container_name', 'llm-dev')
-        image_name = image or f"llm-env:{config['cuda_version']}"
-        
-        # 既存のコンテナを停止
-        subprocess.run(["docker", "stop", container_name], capture_output=True)
-        subprocess.run(["docker", "rm", container_name], capture_output=True)
-        
-        cmd = [
-            "docker", "run",
-            "--gpus", "all",
-            "--name", container_name,
-            "-v", f"{os.getcwd()}:/workspace",
-            "--shm-size", "16g",
-            "-p", "8888:8888",
-            "-p", "6006:6006",
-            "-it",
-            "-d",
-            image_name
-        ]
-        
-        result = subprocess.run(cmd)
-        if result.returncode == 0:
-            print(f"✅ コンテナ起動成功: {container_name}")
+        print("📝 docker-compose.ymlが見つかりません")
+        print("💡 通常のDocker起動を使用します...")
+        run_with_docker(config, container_name, image_name)
+
+def run_with_docker(config, container_name, image_name):
+    """通常のdocker runでコンテナを起動"""
+    mount_path = config.get('mount_path', '/workspace')
+    
+    # 既存のコンテナを停止
+    subprocess.run(["docker", "stop", container_name], capture_output=True)
+    subprocess.run(["docker", "rm", container_name], capture_output=True)
+    
+    # コンテナ起動コマンド
+    cmd = [
+        "docker", "run",
+        "--gpus", "all",
+        "--name", container_name,
+        "-v", f"{os.getcwd()}/workspace:{mount_path}",
+        "-v", f"{os.path.expanduser('~')}/.cache/huggingface:/root/.cache/huggingface",
+        "--shm-size", "16g",
+        "-p", "8888:8888",
+        "-p", "6006:6006",
+        "-it",
+        "-d",
+        image_name
+    ]
+    
+    print(f"🚀 コンテナを起動中: {container_name}")
+    result = subprocess.run(cmd)
+    
+    if result.returncode == 0:
+        print(f"✅ コンテナ起動成功: {container_name}")
+        print_connection_info(container_name, config)
+    else:
+        print("❌ コンテナ起動に失敗しました")
+
+def print_connection_info(container_name, config):
+    """接続情報を表示"""
+    print(f"\n📝 接続方法:")
+    print(f"  docker exec -it {container_name} bash")
+    
+    if config.get('jupyter'):
+        print(f"\n🌐 サービス:")
+        print(f"  Jupyter Lab: http://localhost:8888")
+        print(f"    起動: docker exec -it {container_name} jupyter lab --ip 0.0.0.0 --allow-root --no-browser")
+    
+    if config.get('packages', {}).get('mlflow'):
+        print(f"  MLflow: http://localhost:5000")
+    
+    print(f"  TensorBoard: http://localhost:6006")
 
 def list_packages(config):
     """選択されたパッケージを表示"""

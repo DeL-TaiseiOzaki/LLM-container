@@ -1,6 +1,3 @@
-# Simple LLM Docker Environment
-# Generated: 2025-09-28 17:31:10
-
 FROM nvidia/cuda:12.8.0-cudnn-devel-ubuntu22.04
 
 # 基本設定
@@ -62,6 +59,8 @@ RUN uv pip install \
 # オプションパッケージ
 
 RUN uv pip install vllm
+
+
 
 RUN uv pip install trl peft
 

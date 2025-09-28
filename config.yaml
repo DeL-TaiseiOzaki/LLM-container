@@ -37,5 +37,5 @@ claude_code: true           # Claude Code AI開発支援
 jupyter: false            # Jupyter Lab
 
 # コンテナ設定
-container_name: "llm-dev-ozaki"
+container_name: "toe-ozaki"
 mount_path: "/workspace"

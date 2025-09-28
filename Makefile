@@ -1,74 +1,54 @@
-.PHONY: help init validate generate build run exec stop clean logs all
+.PHONY: help build run exec stop logs status clean
 
-# デフォルト設定
-CONFIG ?= config.yaml
-IMAGE_NAME ?= llm-env:latest
-CONTAINER_NAME ?= llm-dev
+# デフォルト
+IMAGE ?= llm-env:latest
+USER ?= $(shell whoami)
+GPU ?= all
+PORT ?= 0
 
 help:
-	@echo "📚 使用可能なコマンド:"
+	@echo "🚀 Simple LLM Docker (Multi-User)"
 	@echo ""
-	@echo "  make init       - 初期設定（config.yaml生成）"
-	@echo "  make validate   - 設定を検証"
-	@echo "  make generate   - Dockerfileを生成"
-	@echo "  make build      - Dockerイメージをビルド"
-	@echo "  make run        - コンテナを起動"
-	@echo "  make exec       - コンテナに接続"
-	@echo "  make stop       - コンテナを停止"
-	@echo "  make logs       - ログを表示"
-	@echo "  make clean      - クリーンアップ"
-	@echo "  make all        - すべて実行（init→build→run）"
+	@echo "使い方:"
+	@echo "  make build              # イメージビルド（初回のみ）"
+	@echo "  make run USER=名前      # コンテナ起動"
+	@echo "  make exec USER=名前     # コンテナ接続"  
+	@echo "  make stop USER=名前     # コンテナ停止"
+	@echo "  make status             # 全コンテナ状態"
+	@echo "  make logs USER=名前     # ログ表示"
 	@echo ""
-	@echo "📝 使用例:"
-	@echo "  make init       # 初回のみ"
-	@echo "  make all        # 一括実行"
-	@echo "  make exec       # コンテナに入る"
-
-init:
-	@echo "🚀 初期設定を開始..."
-	@python build.py init
-
-validate:
-	@python build.py validate --config $(CONFIG)
-
-generate:
-	@python build.py generate --config $(CONFIG)
+	@echo "オプション:"
+	@echo "  GPU=0                   # GPU指定（デフォルト: all）"
+	@echo "  PORT=10                 # ポートオフセット（デフォルト: 0）"
+	@echo ""
+	@echo "例:"
+	@echo "  make run USER=ozaki GPU=0 PORT=0    # ozaki: GPU0, port 8888"
+	@echo "  make run USER=esashi GPU=1 PORT=10  # esashi: GPU1, port 8898"
 
 build:
-	@echo "🔨 Dockerイメージをビルド中..."
-	@python build.py build --config $(CONFIG) --image $(IMAGE_NAME)
+	@echo "🔨 ビルド中..."
+	@python build.py init
+	@python build.py build --image $(IMAGE)
 
 run:
-	@echo "🚀 コンテナを起動中..."
-	@if [ -f docker-compose.yml ]; then \
-		docker-compose up -d; \
-	else \
-		python build.py run --image $(IMAGE_NAME) --name $(CONTAINER_NAME); \
-	fi
+	@chmod +x run.sh
+	@./run.sh $(USER) $(GPU) $(PORT)
 
 exec:
-	@echo "📟 コンテナに接続中..."
-	@docker exec -it $(CONTAINER_NAME) bash
+	@docker exec -it llm-$(USER) bash
 
 stop:
-	@echo "⏹️ コンテナを停止中..."
-	@if [ -f docker-compose.yml ]; then \
-		docker-compose down; \
-	else \
-		docker stop $(CONTAINER_NAME) || true; \
-	fi
+	@docker stop llm-$(USER)
 
 logs:
-	@docker logs -f $(CONTAINER_NAME)
+	@docker logs -f llm-$(USER)
+
+status:
+	@echo "📊 LLMコンテナ状態:"
+	@docker ps -a --filter "name=llm-" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
 clean:
-	@echo "🧹 クリーンアップ中..."
-	@docker stop $(CONTAINER_NAME) || true
-	@docker rm $(CONTAINER_NAME) || true
-	@rm -f Dockerfile
+	@docker rm llm-$(USER)
 
-all: init build run
-	@echo "✨ セットアップ完了!"
-	@echo ""
-	@echo "📝 次のステップ:"
-	@echo "  make exec  # コンテナに接続"
+clean-all:
+	@docker rm $$(docker ps -aq --filter "name=llm-") 2>/dev/null || true
