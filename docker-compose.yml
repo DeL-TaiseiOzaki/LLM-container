@@ -1,4 +1,4 @@
-version: '3.8'
+version: '3.10'
 
 services:
   llm-dev:
@@ -17,18 +17,19 @@ services:
     
     # ボリューム（リポジトリ配下のユーザー別ディレクトリ）
     volumes:
-      - ./users/${USER}/workspace:/workspace
-      - ./users/${USER}/models:/models
-      - ./users/${USER}/datasets:/datasets
-      - ./users/${USER}/logs:/logs
-      - ~/.cache/huggingface:/root/.cache/huggingface
+      - ${BASE_DIR}/workspace:/workspace
+      - ${BASE_DIR}/models:/models
+      - ${BASE_DIR}/datasets:/datasets
+      - ${BASE_DIR}/logs:/logs
+      - /data/cache/huggingface:/cache/huggingface
+      - /data/cache/uv:/cache/uv
     
     # 全ポート利用可能（ホストネットワークモード）
     network_mode: host
     
     # 環境変数（必要最小限）
     environment:
-      - HF_HOME=/root/.cache/huggingface
+      - HF_HOME=/cache/huggingface
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - HF_TOKEN=${HF_TOKEN:-}

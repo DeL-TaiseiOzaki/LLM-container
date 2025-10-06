@@ -1,23 +1,23 @@
-.PHONY: help build run exec stop logs clean
+.PHONY: help build run exec stop logs clean down
 
 USER ?= $(shell whoami)
-BASE_DIR ?= $(shell pwd)  # デフォルトは現在のディレクトリ
+BASE_DIR ?= $(shell pwd)/users/$(USER)
 
 help:
 	@echo "🚀 Simple LLM Docker"
 	@echo ""
 	@echo "基本コマンド:"
 	@echo "  make build         # イメージビルド"
-	@echo "  make run           # コンテナ起動（現在のディレクトリ使用）"
+	@echo "  make run           # コンテナ起動（docker-compose使用）"
 	@echo "  make exec          # コンテナ接続"
 	@echo "  make stop          # コンテナ停止"
 	@echo "  make logs          # ログ表示"
 	@echo "  make clean         # コンテナ削除"
+	@echo "  make down          # docker-compose down"
 	@echo ""
 	@echo "カスタム起動:"
-	@echo "  make run USER=ozaki                  # ozaki用（現在のディレクトリ）"
-	@echo "  make run BASE_DIR=/home/ozaki        # ozaki用（特定パス）"
-	@echo "  make run USER=esashi BASE_DIR=/data  # esashi用（/data配下）"
+	@echo "  make run USER=ozaki                  # ozaki用コンテナ起動"
+	@echo "  make run USER=ozaki BASE_DIR=/data/ozaki  # 特定パス指定"
 
 build:
 	@python build.py build
@@ -29,10 +29,13 @@ exec:
 	@docker exec -it llm-$(USER) bash
 
 stop:
-	@docker stop llm-$(USER)
+	@USER=$(USER) docker compose stop
 
 logs:
 	@docker logs -f llm-$(USER)
 
 clean:
-	@docker rm -f llm-$(USER) 2>/dev/null || true
+	@USER=$(USER) docker compose down
+
+down:
+	@docker compose down
