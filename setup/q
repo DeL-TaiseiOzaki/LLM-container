@@ -1,0 +1,16 @@
+#!/bin/bash
+# GPU Task Spooler 共有キュー ラッパー
+export TS_SOCKET=${TS_SOCKET:-/cache/ts-queue/.socket}
+
+# ユーザー名: $USER → HOSTNAME から抽出 (llm-xxx → xxx) → "unknown" の順にフォールバック
+LABEL="${USER:-${HOSTNAME#llm-}}"
+LABEL="${LABEL:-unknown}"
+
+case "${1}" in
+  ""|-l|-t|-c|-S|-K|-C|-k|-p|-o|-i|-s|-r|-w|-u|-U|-R|-T|-V|-h|-g|-M|-F|-a|-q)
+    exec ts "$@"
+    ;;
+  *)
+    setsid ts -f -L "$LABEL" "$@" &
+    ;;
+esac

@@ -1,0 +1,17 @@
+[Unit]
+Description=GPU Task Spooler Shared Queue
+After=network.target nvidia-persistenced.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=TS_SOCKET=/data/cache/ts-queue/.socket
+ExecStartPre=/bin/mkdir -p /data/cache/ts-queue/logs
+ExecStartPre=/bin/chmod 1777 /data/cache/ts-queue/logs
+ExecStart=/bin/bash -c '/usr/local/bin/ts -S 8 && /usr/local/bin/ts --set_logdir /cache/ts-queue/logs'
+ExecStartPost=/bin/chmod 666 /data/cache/ts-queue/.socket
+ExecStop=/usr/local/bin/ts -K
+User=root
+
+[Install]
+WantedBy=multi-user.target

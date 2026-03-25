@@ -5,6 +5,7 @@ services:
     build: .
     image: llm-env:latest
     container_name: llm-${USER:-dev}
+    hostname: llm-${USER:-dev}
     
     # GPU全部使う
     deploy:
@@ -21,15 +22,35 @@ services:
       - ${BASE_DIR}/models:/models
       - ${BASE_DIR}/datasets:/datasets
       - ${BASE_DIR}/logs:/logs
+      # 共有キャッシュ
       - /data/cache/huggingface:/cache/huggingface
       - /data/cache/uv:/cache/uv
+      - /data/cache/torch:/cache/torch
+      - /data/cache/matplotlib:/cache/matplotlib
+      # GPU Task Spooler
+      - /data/cache/ts-queue:/cache/ts-queue
+      - /usr/local/bin/ts:/usr/local/bin/ts:ro
+      - /usr/local/bin/q:/usr/local/bin/q:ro
     
     # 全ポート利用可能（ホストネットワークモード）
     network_mode: host
     
-    # 環境変数（必要最小限）
+    # 環境変数
     environment:
+      # キャッシュディレクトリ（XDG準拠ライブラリ向け汎用設定）
+      - XDG_CACHE_HOME=/cache
+      # HuggingFace
       - HF_HOME=/cache/huggingface
+      - HF_HUB_CACHE=/cache/huggingface/hub
+      # uv パッケージマネージャー
+      - UV_CACHE_DIR=/cache/uv
+      # PyTorch Hub
+      - TORCH_HOME=/cache/torch
+      # matplotlib
+      - MPLCONFIGDIR=/cache/matplotlib
+      # GPU Task Spooler
+      - TS_SOCKET=/cache/ts-queue/.socket
+      # API キー
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - HF_TOKEN=${HF_TOKEN:-}

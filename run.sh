@@ -26,6 +26,10 @@ mkdir -p ${BASE_DIR}/datasets
 mkdir -p ${BASE_DIR}/logs
 sudo mkdir -p /data/cache/huggingface
 sudo mkdir -p /data/cache/uv
+sudo mkdir -p /data/cache/torch
+sudo mkdir -p /data/cache/matplotlib
+sudo mkdir -p /data/cache/ts-queue/logs
+sudo chmod 1777 /data/cache/ts-queue/logs
 
 # 既存コンテナの確認
 if $DOCKER_CMD ps -a --format '{{.Names}}' | grep -q "^${CONTAINER}$"; then
@@ -50,7 +54,19 @@ else
         -v ${BASE_DIR}/logs:/logs \
         -v /data/cache/huggingface:/cache/huggingface \
         -v /data/cache/uv:/cache/uv \
+        -v /data/cache/torch:/cache/torch \
+        -v /data/cache/matplotlib:/cache/matplotlib \
+        -v /data/cache/ts-queue:/cache/ts-queue \
+        -v /usr/local/bin/ts:/usr/local/bin/ts:ro \
+        -v /usr/local/bin/q:/usr/local/bin/q:ro \
+        --hostname ${CONTAINER} \
+        -e XDG_CACHE_HOME=/cache \
         -e HF_HOME=/cache/huggingface \
+        -e HF_HUB_CACHE=/cache/huggingface/hub \
+        -e UV_CACHE_DIR=/cache/uv \
+        -e TORCH_HOME=/cache/torch \
+        -e MPLCONFIGDIR=/cache/matplotlib \
+        -e TS_SOCKET=/cache/ts-queue/.socket \
         -e ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-} \
         -e OPENAI_API_KEY=${OPENAI_API_KEY:-} \
         -e HF_TOKEN=${HF_TOKEN:-} \
