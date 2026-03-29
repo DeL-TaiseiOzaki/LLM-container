@@ -1,3 +1,11 @@
+# /// script
+# requires-python = ">=3.9"
+# dependencies = [
+#     "pyyaml>=6.0",
+#     "jinja2>=3.1.0",
+# ]
+# ///
+
 import os
 import sys
 import yaml
@@ -373,7 +381,7 @@ def main():
     # 設定を読み込む
     if not os.path.exists(args.config):
         print(f"❌ 設定ファイルが見つかりません: {args.config}")
-        print("💡 まず 'python build.py init' を実行してください")
+        print("💡 まず 'uv run build.py init' を実行してください")
         sys.exit(1)
     
     config = load_config(args.config)

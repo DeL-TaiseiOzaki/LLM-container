@@ -2,10 +2,15 @@ __pycache__/
 *.pyc
 .git/
 .gitignore
+.python-version
+.venv/
 README.md
+GPU-QUEUE.md
+SETUP-GPU-QUEUE.md
 docs/
 tests/
 *.log
 .DS_Store
 .vscode/
 .idea/
+users/
