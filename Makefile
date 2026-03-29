@@ -20,7 +20,7 @@ help:
 	@echo "  make run USER=ozaki BASE_DIR=/data/ozaki  # 特定パス指定"
 
 build:
-	@python build.py build
+	@uv run build.py build
 
 run:
 	@bash run.sh $(USER) $(BASE_DIR)

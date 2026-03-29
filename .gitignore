@@ -1,12 +1,17 @@
 # Python
 __pycache__/
 *.pyc
+.venv/
+
+# uv
+.python-version
 
 # 生成ファイル
 Dockerfile
 
 # ユーザーデータ
 workspace/
+users/
 .env
 
 # ログ
